@@ -21,12 +21,15 @@ agents (planner, implementer, code-reviewer, verifier, fixer, researcher) and th
 npm install
 npm run types        # tsc --noEmit (type check)
 npm test             # node --test 'src/**/*.test.ts'
+npm run build        # bundle CLI to dist/cli.js (required for npm publish / npx)
 npm run setup        # node src/cli.ts (run the installer; alias)
 node src/cli.ts --cursor --opencode --global --force   # non-interactive install
 ```
 
-No build step: TypeScript runs directly under Node ≥ 23.6 (native type
-stripping). Requires Node ≥ 23.6.
+Local development runs TypeScript directly under Node ≥ 23.6 (native type
+stripping). The published package ships `dist/cli.js` because Node refuses to
+strip types under `node_modules` — that is what `npx` executes. Runtime of the
+published bin needs Node ≥ 20.
 
 ## How it wires together
 

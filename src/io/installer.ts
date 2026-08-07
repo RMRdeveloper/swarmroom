@@ -1,12 +1,11 @@
 import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { agents, skills } from '../domain/pipeline.ts';
 import type { InstallTarget, Target } from '../domain/targets.ts';
+import { assetsDir } from './package-root.ts';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const defaultAssetsDir = join(here, '..', 'assets');
+const defaultAssetsDir = assetsDir();
 export const guidelinesFileName = 'CODING_GUIDELINES.md';
 const agentSource = (assetsRoot: string, name: string) => join(assetsRoot, 'agents', `${name}.md`);
 const skillSource = (assetsRoot: string, name: string) => join(assetsRoot, 'skills', name, 'SKILL.md');

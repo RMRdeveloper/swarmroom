@@ -1,21 +1,24 @@
 {
   "name": "@rmrdeveloper/swarmroom",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher) for Cursor, opencode, and Claude Code.",
   "type": "module",
   "bin": {
-    "swarmroom": "src/cli.ts"
+    "swarmroom": "dist/cli.js"
   },
   "files": [
-    "src"
+    "dist",
+    "src/assets"
   ],
   "scripts": {
+    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external",
+    "prepublishOnly": "npm run build",
     "setup": "node src/cli.ts",
     "types": "tsc --noEmit",
     "test": "node --test 'src/**/*.test.ts'"
   },
   "engines": {
-    "node": ">=23.6"
+    "node": ">=20"
   },
   "keywords": [
     "agents",
@@ -39,6 +42,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.1",
+    "esbuild": "^0.25.0",
     "typescript": "^5.6.0"
   }
 }

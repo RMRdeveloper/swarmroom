@@ -139,13 +139,16 @@ src/
 npm install
 npm run types    # tsc --noEmit type check
 npm test         # node:test suite
-npm run setup    # run the CLI (alias for `node src/cli.ts`)
+npm run build    # bundle CLI → dist/cli.js (what npm/npx ships)
+npm run setup    # run the CLI from source (alias for `node src/cli.ts`)
 ```
 
 Runtime dependency: `picocolors` (TTY / `NO_COLOR` aware terminal colors).
 
-TypeScript runs directly (Node's native type stripping, and requires Node
-≥ 23.6); there is no build step.
+Local development runs TypeScript directly (Node ≥ 23.6 native type stripping).
+The published package ships a bundled `dist/cli.js` — Node does not strip types
+under `node_modules`, so `npx` cannot execute `.ts` entrypoints. Published
+runtime requires Node ≥ 20.
 
 ## Adding a tool or agent
 

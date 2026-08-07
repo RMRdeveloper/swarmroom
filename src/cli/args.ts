@@ -1,12 +1,12 @@
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { cwd } from 'node:process';
-import { fileURLToPath } from 'node:url';
 
 import type { Scope, Target } from '../domain/targets.ts';
 import { targets } from '../domain/targets.ts';
+import { packageRoot } from '../io/package-root.ts';
 
-const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'package.json');
+const pkgPath = join(packageRoot(), 'package.json');
 
 /** Package version from package.json; fail fast if missing. */
 export function packageVersion(): string {
