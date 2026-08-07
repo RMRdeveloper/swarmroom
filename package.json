@@ -1,5 +1,5 @@
 {
-  "name": "swarmroom",
+  "name": "@rmrdeveloper/swarmroom",
   "version": "1.0.0",
   "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher) for Cursor, opencode, and Claude Code.",
   "type": "module",
@@ -27,6 +27,13 @@
     "code-review"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RMRdeveloper/swarmroom.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "picocolors": "^1.1.1"
   },

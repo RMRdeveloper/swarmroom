@@ -14,18 +14,24 @@ in any project without locking you into one tool.
 
 ## Install
 
-From inside the project (or clone first):
+```
+npx @rmrdeveloper/swarmroom               # interactive: pick editors + scope
+npx @rmrdeveloper/swarmroom --cursor --opencode --global --force
+```
+
+Or install the CLI globally and run `swarmroom`:
+
+```
+npm install -g @rmrdeveloper/swarmroom
+swarmroom --claude --dir /path/to/project
+```
+
+From a clone (development):
 
 ```
 git clone https://github.com/RMRdeveloper/swarmroom
 cd swarmroom
-node src/cli.ts               # interactive: pick editors + scope
-```
-
-Non-interactive (production/CI):
-
-```
-node src/cli.ts --cursor --opencode --global --force
+node src/cli.ts
 ```
 
 | Option       | Effect                                             |
