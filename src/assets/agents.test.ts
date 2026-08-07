@@ -11,7 +11,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const agentsDir = join(here, 'agents');
 const guidelinesPath = join(here, 'artifacts', 'CODING_GUIDELINES.md');
 
-/** Pipeline agents that share Block A + Block B (excludes researcher). */
+/** Pipeline agents that share Block A + Block B (excludes researchers). */
+const RESEARCH_AGENTS = ['sw-researcher', 'sw-web-researcher'] as const;
 const READ_FIRST_AGENTS = [
   'sw-planner',
   'sw-implementer',
@@ -149,8 +150,10 @@ describe('agent prompt assets', () => {
     assertIdenticalBlocks(blocks, 'baseline');
   });
 
-  it('gives sw-researcher no Baseline standards section', () => {
-    assert.ok(!byName['sw-researcher']!.includes('## Baseline standards'));
+  it('gives research agents no Baseline standards section', () => {
+    for (const name of RESEARCH_AGENTS) {
+      assert.ok(!byName[name]!.includes('## Baseline standards'), `${name} must not have Baseline`);
+    }
   });
 
   it('aligns baseline bullets with Quick reference Do cells', () => {
@@ -179,7 +182,7 @@ describe('agent prompt assets', () => {
       byName['sw-fixer']!.indexOf(GRILLING_STANDALONE) + GRILLING_STANDALONE.length,
     );
     assert.equal(fromImpl, fromFixer);
-    for (const name of ['sw-code-reviewer', 'sw-verifier', 'sw-researcher'] as const) {
+    for (const name of ['sw-code-reviewer', 'sw-verifier', ...RESEARCH_AGENTS] as const) {
       assert.ok(!byName[name]!.toLowerCase().includes('grilling'), `${name} must not mention grilling`);
     }
   });

@@ -7,4 +7,5 @@ export const agents: readonly string[] = [
   'sw-verifier',
   'sw-fixer',
   'sw-researcher',
+  'sw-web-researcher',
 ];

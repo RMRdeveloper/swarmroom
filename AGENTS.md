@@ -1,7 +1,7 @@
 # AGENTS.md
 
 This repo is the installer + source-of-truth for the portable `sw-*` coding
-agents (planner, implementer, code-reviewer, verifier, fixer, researcher) and the
+agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-researcher) and the
 `sw-pipeline` + `grilling` skills, installed into Cursor, opencode, or Claude Code.
 
 ## Source of truth (critical)

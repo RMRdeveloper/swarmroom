@@ -1,7 +1,7 @@
 # swarmroom
 
 Portable `sw-*` coding agents (planner, implementer, code-reviewer, verifier,
-fixer, researcher) plus the `sw-pipeline` skill that orchestrates them. One
+fixer, researcher, web-researcher) plus the `sw-pipeline` skill that orchestrates them. One
 source of truth in `src/assets`, installed into Cursor, opencode, or Claude
 Code with a small TypeScript CLI.
 
@@ -85,8 +85,9 @@ non-trivial work, only `sw-planner` runs `grilling` to settle decisions before
 planning. If a stage reports Critical findings it doesn't advance: it loops
 implementer→fixer until clean.
 
-`sw-researcher` is deliberately outside the pipeline: an on-demand research
-oracle for evidence-backed answers, not a stage in the orchestrated flow.
+`sw-researcher` and `sw-web-researcher` are deliberately outside the pipeline:
+on-demand research oracles for evidence-backed answers (codebase vs web/docs),
+not stages in the orchestrated flow.
 
 ## Agents
 
@@ -98,6 +99,7 @@ oracle for evidence-backed answers, not a stage in the orchestrated flow.
 | `sw-verifier`      | yes       | Confirms it exists, is wired, passes tests            |
 | `sw-fixer`         | no    | Fixes findings severity-first, max 2 passes per finding |
 | `sw-researcher`    | yes       | Answers codebase questions with cited evidence          |
+| `sw-web-researcher` | yes     | Answers web/docs questions with cited URLs              |
 
 ## Findings contract
 
