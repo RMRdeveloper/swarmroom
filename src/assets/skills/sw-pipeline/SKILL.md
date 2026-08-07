@@ -10,6 +10,7 @@ Run the sw-\* pipeline end to end, delegating each stage to its subagent
 `sw-fixer`), not substituting your own judgement.
 
 1. sw-planner — read-first (CODING_GUIDELINES.md / AGENTS.md / CONTEXT.md), then plan. Show it.
+   For non-trivial work, if a `grilling` skill is available, only the planner runs it.
 2. sw-implementer — implement the plan; run the repo's lint/tests before done.
 3. sw-code-reviewer — review diff; one line per finding:
    `FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>`

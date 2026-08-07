@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { join } from 'node:path';
+
+import type { Target } from '../domain/targets.ts';
+import type { InstallReport } from '../io/installer.ts';
+import {
+  displayPath,
+  formatArtifactBody,
+  formatStatusCounts,
+  formatTargetBody,
+  printArtifactReport,
+  printTargetReport,
+} from './report.ts';
+
+const fakeTarget = {
+  id: 'cursor',
+  label: 'Cursor',
+  root: '.cursor',
+  agentsDir: 'agents',
+  skillsDir: 'skills',
+  globalBase: '/tmp',
+  rewriteAgent: (s: string) => s,
+  rewriteSkill: (s: string) => s,
+} as const satisfies Target;
+
+describe('report formatters', () => {
+  it('hides zero status counts', () => {
+    const lines = formatStatusCounts({ new: 2, updated: 0, skipped: 1 });
+    assert.deepEqual(
+      lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')),
+      ['  2 new', '  1 skipped'],
+    );
+  });
+
+  it('formatTargetBody lists files when verbose', () => {
+    const destRoot = '/proj/.cursor';
+    const report: InstallReport = {
+      target: fakeTarget,
+      destRoot,
+      files: [
+        { dest: join(destRoot, 'agents', 'sw-planner.md'), status: 'new' },
+        { dest: join(destRoot, 'agents', 'sw-fixer.md'), status: 'skipped' },
+      ],
+    };
+    const body = formatTargetBody(report, true).map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+    assert.ok(body.some((l) => l.includes('2 new') || l.includes('1 new')));
+    assert.ok(body.some((l) => /new\s+agents\/sw-planner\.md/.test(l)));
+    assert.ok(body.some((l) => /skipped\s+agents\/sw-fixer\.md/.test(l)));
+  });
+
+  it('formatArtifactBody uses dest when verbose', () => {
+    const dest = '/proj/CODING_GUIDELINES.md';
+    const body = formatArtifactBody(dest, 'updated', true).map((l) =>
+      l.replace(/\x1b\[[0-9;]*m/g, ''),
+    );
+    assert.ok(body.some((l) => l.includes('1 updated')));
+    assert.ok(body.some((l) => l.includes(dest)));
+  });
+
+  it('displayPath prefers relative under destRoot', () => {
+    assert.equal(displayPath('/a/b/c.md', '/a/b'), 'c.md');
+    assert.equal(displayPath('/other/c.md', '/a/b'), '/other/c.md');
+  });
+
+  it('quiet suppresses target and artifact report bodies', () => {
+    const lines: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '));
+    };
+    try {
+      const report: InstallReport = {
+        target: fakeTarget,
+        destRoot: '/proj/.cursor',
+        files: [{ dest: '/proj/.cursor/agents/x.md', status: 'new' }],
+      };
+      printTargetReport(report, { verbose: false, quiet: true });
+      printArtifactReport('CODING_GUIDELINES.md', '/proj/CODING_GUIDELINES.md', 'new', {
+        verbose: false,
+        quiet: true,
+      });
+      assert.deepEqual(lines, []);
+    } finally {
+      console.log = original;
+    }
+  });
+});

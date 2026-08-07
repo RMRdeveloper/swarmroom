@@ -7,10 +7,10 @@ Code with a small TypeScript CLI.
 
 ## What it is
 
-Each `sw-*` agent encodes the same baseline principles — guard clauses, fail
-fast, SRP, DRY, KISS, clear names, no magic strings, validate once — and defers
-to a repo's own `AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when
-present, so they work in any project without locking you into one tool.
+Each pipeline `sw-*` agent carries the full quick-reference baseline from
+`CODING_GUIDELINES.md` (one line per Do cell) and defers to a repo's own
+`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present, so they work
+in any project without locking you into one tool.
 
 ## Install
 
@@ -22,7 +22,7 @@ cd swarmroom
 node src/cli.ts               # interactive: pick editors + scope
 ```
 
-Non-interactive (productions/CI):
+Non-interactive (production/CI):
 
 ```
 node src/cli.ts --cursor --opencode --global --force
@@ -36,7 +36,12 @@ node src/cli.ts --cursor --opencode --global --force
 | `--global`   | install into the homedir (default: this project)   |
 | `--dir`      | install into another project root                  |
 | `--force`    | overwrite existing files without asking            |
-| `--help`     | show usage                                         |
+| `--verbose` / `-v` | list each installed file                     |
+| `--quiet` / `-q` | suppress per-target summaries (opening/closing still print) |
+| `--help` / `-h` | show usage                                      |
+| `--version` / `-V` | print version                                |
+
+`--verbose` and `--quiet` are mutually exclusive.
 
 ## Update
 
@@ -49,15 +54,19 @@ node src/cli.ts --force
 
 ## What gets installed
 
-| Editor    | Agents                     | Orchestrator skill                     |
-| --------- | -------------------------- | -------------------------------------- |
-| Cursor    | `.cursor/agents/*.md`      | `.cursor/skills/sw-pipeline/SKILL.md`  |
-| opencode  | `.opencode/agent/*.md`     | `.opencode/skill/sw-pipeline/SKILL.md` |
-| Claude    | `.claude/agents/*.md`      | `.claude/skills/sw-pipeline/SKILL.md`  |
+| Editor    | Agents                     | Skills                                                      |
+| --------- | -------------------------- | ----------------------------------------------------------- |
+| Cursor    | `.cursor/agents/*.md`      | `.cursor/skills/{sw-pipeline,grilling}/SKILL.md`            |
+| opencode  | `.opencode/agent/*.md`     | `.opencode/skill/{sw-pipeline,grilling}/SKILL.md`           |
+| Claude    | `.claude/agents/*.md`      | `.claude/skills/{sw-pipeline,grilling}/SKILL.md`            |
 
 Each editor gets the same agents; the installer rewrites the heading
 frontmatter (`readonly` vs `mode: subagent`) so the files are valid for the
-target.
+target. Both `sw-pipeline` and `grilling` are installed into the editor
+skills directory.
+
+Project-scope installs also copy `CODING_GUIDELINES.md` once to the project
+root (the cwd or `--dir` path). Global installs skip that file.
 
 ## Pipeline
 
@@ -65,16 +74,20 @@ target.
 sw-pipeline → sw-planner → sw-implementer → sw-code-reviewer / sw-verifier → sw-fixer
 ```
 
-`sw-pipeline` runs the stages end to end, each delegating to its subagent. If a
-stage reports Critical findings it doesn't advance: it loops
+`sw-pipeline` runs the stages end to end, each delegating to its subagent. For
+non-trivial work, only `sw-planner` runs `grilling` to settle decisions before
+planning. If a stage reports Critical findings it doesn't advance: it loops
 implementer→fixer until clean.
+
+`sw-researcher` is deliberately outside the pipeline: an on-demand research
+oracle for evidence-backed answers, not a stage in the orchestrated flow.
 
 ## Agents
 
-| Agent          | Read-only | How uses                                             |
+| Agent          | Read-only | How it uses                                          |
 | -------------- | --------- | ---------------------------------------------------- |
 | `sw-planner`       | yes       | Plan any non-trivial change before editing            |
-| `sw-implementer`   | no        | Writes/modicates code per standards, runs lint+tests  |
+| `sw-implementer`   | no        | Writes/modifies code per standards, runs lint+tests  |
 | `sw-code-reviewer` | yes       | Reviews diffs strictly, one `FINDING` line per issue   |
 | `sw-verifier`      | yes       | Confirms it exists, is wired, passes tests            |
 | `sw-fixer`         | no    | Fixes findings severity-first, max 2 passes per finding |
@@ -98,14 +111,19 @@ address when possible.
 src/
 ├── cli.ts            # entry: option parsing + orchestration
 ├── domain/
-│   ├── pipeline.ts   # single source of the sw-* agent names + skill name
+│   ├── pipeline.ts   # single source of the sw-* agent names + skills list
 │   └── targets.ts    # Target configs (cursor|opencode|claude) + frontmatter rewrites
 ├── io/
 │   └── installer.ts  # copies assets to the target dir (idempotent)
 ├── cli/
+│   ├── args.ts       # argv parsing + help text
+│   ├── report.ts     # install summary output
+│   ├── style.ts      # TTY-aware colors (picocolors)
 │   └── prompts.ts    # interactive selection (stdlib readline)
 └── assets/           # the markdown you install (source of truth)
+    ├── artifacts/CODING_GUIDELINES.md
     ├── skills/sw-pipeline/SKILL.md
+    ├── skills/grilling/SKILL.md
     └── agents/sw-*.md
 ```
 
@@ -114,18 +132,23 @@ src/
 ```
 npm install
 npm run types    # tsc --noEmit type check
+npm test         # node:test suite
 npm run setup    # run the CLI (alias for `node src/cli.ts`)
 ```
 
-TypeScript runs directly (Node's native type stripping, erg requires Node
+Runtime dependency: `picocolors` (TTY / `NO_COLOR` aware terminal colors).
+
+TypeScript runs directly (Node's native type stripping, and requires Node
 ≥ 23.6); there is no build step.
 
 ## Adding a tool or agent
 
 - New editor target: add one `Target` entry in `src/domain/targets.ts` — the
-  rest is specific.
+  rest is automatic.
 - New agent: add its markdown to `src/assets/agents/` and its name to
   `src/domain/pipeline.ts`.
+- New skill: add `src/assets/skills/<name>/SKILL.md` and append the name to
+  `skills` in `src/domain/pipeline.ts`.
 
 ## License
 

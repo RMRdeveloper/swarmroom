@@ -1,4 +1,4 @@
-export const skillName = 'sw-pipeline';
+export const skills: readonly string[] = ['sw-pipeline', 'grilling'];
 
 export const agents: readonly string[] = [
   'sw-planner',

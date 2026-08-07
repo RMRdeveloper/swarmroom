@@ -1,88 +1,94 @@
 #!/usr/bin/env node
+import { packageVersion, parseArgs, formatHelp } from './cli/args.ts';
 import { confirm, close, selectMultiple } from './cli/prompts.ts';
-import type { Scope, Target } from './domain/targets.ts';
-import { targets } from './domain/targets.ts';
-import { anyPresent, install } from './io/installer.ts';
-import { cwd } from 'node:process';
-import { join } from 'node:path';
+import { printArtifactReport, printClosing, printOpening, printTargetReport } from './cli/report.ts';
+import * as style from './cli/style.ts';
+import { scopeRoot } from './domain/targets.ts';
+import {
+  anyPresent,
+  guidelinesFileName,
+  guidelinesPresent,
+  install,
+  installGuidelines,
+} from './io/installer.ts';
+import { homedir } from 'node:os';
 
 const TTY = process.stdout.isTTY;
 
-const HELP = `swarmroom — install the sw-* pipeline agents into your editor.
-
-Usage:
-  node src/cli.ts [options]
-
-Options:
-  --cursor | --opencode | --claude   install for those editors (default: all)
-  --global                            install into the homedir (default: this project)
-  --dir <path>                        install into another project root
-  --force                             overwrite existing files without asking
-  --help                              show this help
-
-Run with no editor flag in a terminal to choose interactively.
-Re-run to update the installed files.`;
-
-interface Options {
-  chosen: readonly Target[];
-  scope: Scope;
-  dir: string;
-  force: boolean;
-  explicit: boolean;
+/** Display path for confirms; shortens `$HOME` to `~`. */
+function pathHint(root: string): string {
+  const home = homedir();
+  return root.startsWith(home) ? `~${root.slice(home.length)}` : root;
 }
 
-function parseArgs(argv: readonly string[]): Options | null {
-  const picked: Target[] = [];
-  let scope: Scope = 'project';
-  let dir = cwd();
-  let force = false;
-
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    const match = targets.find((t) => a === `--${t.id}`);
-    if (match) {
-      picked.push(match);
-    } else if (a === '--global') {
-      scope = 'global';
-    } else if (a === '--dir') {
-      dir = argv[++i] ?? '';
-    } else if (a === '--force') {
-      force = true;
-    } else if (a === '--help' || a === '-h') {
-      console.log(HELP);
-      return null;
-    } else {
-      console.error(`unknown option: ${a}\nRun with --help for usage.`);
-      return null;
-    }
-  }
-
-  return { chosen: picked.length ? picked : targets, scope, dir, force, explicit: picked.length > 0 };
+function printError(message: string): void {
+  console.error(style.error(`error: ${message}`));
 }
 
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
-  if (!args) return;
+  try {
+    const parsed = parseArgs(process.argv.slice(2));
 
-  let { chosen, scope, dir, force } = args;
+    if (parsed.kind === 'help') {
+      console.log(formatHelp());
+      return;
+    }
+    if (parsed.kind === 'version') {
+      console.log(packageVersion());
+      return;
+    }
+    if (parsed.kind === 'error') {
+      printError(parsed.message);
+      process.exitCode = 1;
+      return;
+    }
 
-  if (TTY && !args.explicit) {
-    chosen = await selectMultiple('Pick the editors to install into:', chosen);
-    if (await confirm('Use the global homedir instead of this project?', false)) scope = 'global';
+    let { chosen, scope, dir, force, verbose, quiet } = parsed.options;
+    const version = packageVersion();
+    const reportOpts = { verbose, quiet };
+
+    if (TTY && !parsed.options.explicit) {
+      chosen = await selectMultiple('Pick the editors to install into:', chosen);
+      scope = (await confirm('Install into the global home directory?', false)) ? 'global' : 'project';
+    }
+
+    printOpening(version, scope, dir);
+
+    for (const target of chosen) {
+      const root = scopeRoot(target, scope, dir);
+      const overwrite =
+        force ||
+        (TTY &&
+          (await anyPresent(root, target)) &&
+          (await confirm(
+            `Existing ${target.label} files in ${pathHint(root)} will be replaced. Continue?`,
+            true,
+          )));
+      const report = await install({ target, root }, overwrite);
+      printTargetReport(report, reportOpts);
+    }
+
+    if (scope === 'project') {
+      const overwrite =
+        force ||
+        (TTY &&
+          (await guidelinesPresent(dir)) &&
+          (await confirm(
+            `Existing ${guidelinesFileName} in ${pathHint(dir)} will be replaced. Continue?`,
+            true,
+          )));
+      const file = await installGuidelines(dir, overwrite);
+      printArtifactReport(guidelinesFileName, file.dest, file.status, reportOpts);
+    }
+
+    printClosing(chosen);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    printError(message);
+    process.exitCode = 1;
+  } finally {
+    close();
   }
-
-  for (const target of chosen) {
-    const root = scope === 'global' ? target.globalBase : join(dir, target.root);
-    const overwrite = force || (TTY && (await anyPresent(root, target)) && (await confirm(`Overwrite existing in ${target.label}?`, true)));
-    const report = await install({ target, scope, root }, overwrite);
-
-    const counts = report.files.reduce<Record<string, number>>((acc, f) => ((acc[f.status] = (acc[f.status] ?? 0) + 1), acc), {});
-    console.log(`\n${target.label} -> ${report.destRoot}`);
-    for (const [status, n] of Object.entries(counts)) console.log(`  ${n} ${status}`);
-  }
-
-  close();
-  console.log(`\nDone. Restart ${chosen.map((t) => t.label).join(', ')} to load the agents.`);
 }
 
 await main();

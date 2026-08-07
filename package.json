@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "setup": "node src/cli.ts",
-    "types": "tsc --noEmit"
+    "types": "tsc --noEmit",
+    "test": "node --test 'src/**/*.test.ts'"
   },
   "engines": {
     "node": ">=23.6"
@@ -26,8 +27,11 @@
     "code-review"
   ],
   "license": "MIT",
+  "dependencies": {
+    "picocolors": "^1.1.1"
+  },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^22.20.1",
     "typescript": "^5.6.0"
   }
 }

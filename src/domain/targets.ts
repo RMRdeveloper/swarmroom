@@ -73,8 +73,6 @@ export const targets: readonly Target[] = [
   },
 ];
 
-export const scopeOptions: readonly Scope[] = ['project', 'global'];
-
 /** Absolute destination root for a target at a given scope. */
 export function scopeRoot(target: Target, scope: Scope, cwd: string): string {
   return scope === 'global' ? target.globalBase : join(cwd, target.root);
@@ -83,6 +81,5 @@ export function scopeRoot(target: Target, scope: Scope, cwd: string): string {
 /** What `install` needs to place files for one target. */
 export interface InstallTarget {
   readonly target: Target;
-  readonly scope: Scope;
   readonly root: string;
 }

@@ -9,7 +9,8 @@
 		"strict": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true,
-		"noUncheckedIndexedAccess": true
+		"noUncheckedIndexedAccess": true,
+		"types": ["node"]
 	},
 	"include": ["src"]
 }

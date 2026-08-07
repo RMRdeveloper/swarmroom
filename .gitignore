@@ -1,1 +1,5 @@
 node_modules/
+.cursor/
+.claude/
+.opencode/
+/CODING_GUIDELINES.md
