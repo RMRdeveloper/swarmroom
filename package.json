@@ -1,0 +1,33 @@
+{
+  "name": "swarmroom",
+  "version": "1.0.0",
+  "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher) for Cursor, opencode, and Claude Code.",
+  "type": "module",
+  "bin": {
+    "swarmroom": "src/cli.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "setup": "node src/cli.ts",
+    "types": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=23.6"
+  },
+  "keywords": [
+    "agents",
+    "skills",
+    "cursor",
+    "opencode",
+    "claude",
+    "pipeline",
+    "code-review"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
