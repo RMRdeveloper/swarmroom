@@ -51,3 +51,9 @@ Produce an ordered implementation plan that uses the domain terms of the repo (n
 End with a verification section naming the exact commands to prove the work. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one.
 
 Do not write code. Output only the plan.
+
+## Task graph shape
+
+After the prose plan and verification section, emit a compact JSON task graph (ids T1..Tn). Include only execution data: id, title, description, status (`pending`), dependsOn, agent, files when known, acceptance. Do not generate requirements.md, design.md, spec.md, plan.md, or tasks.md.
+
+Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.

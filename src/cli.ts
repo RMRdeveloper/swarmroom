@@ -3,7 +3,8 @@ import { packageVersion, parseArgs, formatHelp } from './cli/args.ts';
 import { confirm, close, selectMultiple } from './cli/prompts.ts';
 import { printArtifactReport, printClosing, printOpening, printTargetReport } from './cli/report.ts';
 import * as style from './cli/style.ts';
-import { scopeRoot } from './domain/targets.ts';
+import { runTasks } from './cli/tasks.ts';
+import { scopeRoot, scopeSkillsRoot } from './domain/targets.ts';
 import {
   anyPresent,
   guidelinesFileName,
@@ -42,6 +43,10 @@ async function main(): Promise<void> {
       process.exitCode = 1;
       return;
     }
+    if (parsed.kind === 'tasks') {
+      await runTasks({ dir: parsed.dir, json: parsed.json });
+      return;
+    }
 
     let { chosen, scope, dir, force, verbose, quiet } = parsed.options;
     const version = packageVersion();
@@ -56,15 +61,20 @@ async function main(): Promise<void> {
 
     for (const target of chosen) {
       const root = scopeRoot(target, scope, dir);
+      const skillsDest = scopeSkillsRoot(target, scope, dir);
+      const confirmMessage =
+        skillsDest === root
+          ? `Existing ${target.label} files in ${pathHint(root)} will be replaced. Continue?`
+          : `Existing ${target.label} files in ${pathHint(root)} and ${pathHint(skillsDest)} will be replaced. Continue?`;
       const overwrite =
         force ||
         (TTY &&
-          (await anyPresent(root, target)) &&
-          (await confirm(
-            `Existing ${target.label} files in ${pathHint(root)} will be replaced. Continue?`,
-            true,
-          )));
-      const report = await install({ target, root }, overwrite);
+          (await anyPresent(root, target, skillsDest)) &&
+          (await confirm(confirmMessage, true)));
+      const report = await install(
+        skillsDest === root ? { target, root } : { target, root, skillsRoot: skillsDest },
+        overwrite,
+      );
       printTargetReport(report, reportOpts);
     }
 

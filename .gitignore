@@ -3,4 +3,7 @@ dist/
 .cursor/
 .claude/
 .opencode/
+.codex/
+.agents/
 /CODING_GUIDELINES.md
+.swarmroom/

@@ -18,7 +18,21 @@ const fakeTarget = {
   label: 'Cursor',
   root: '.cursor',
   agentsDir: 'agents',
+  agentExt: 'md',
   skillsDir: 'skills',
+  globalBase: '/tmp',
+  rewriteAgent: (s: string) => s,
+  rewriteSkill: (s: string) => s,
+} as const satisfies Target;
+
+const fakeCodexTarget = {
+  id: 'codex',
+  label: 'Codex',
+  root: '.codex',
+  agentsDir: 'agents',
+  agentExt: 'toml',
+  skillsDir: 'skills',
+  skillsRoot: '.agents',
   globalBase: '/tmp',
   rewriteAgent: (s: string) => s,
   rewriteSkill: (s: string) => s,
@@ -61,6 +75,55 @@ describe('report formatters', () => {
   it('displayPath prefers relative under destRoot', () => {
     assert.equal(displayPath('/a/b/c.md', '/a/b'), 'c.md');
     assert.equal(displayPath('/other/c.md', '/a/b'), '/other/c.md');
+  });
+
+  it('formatTargetBody lists split-root files relative to each dest', () => {
+    const destRoot = '/proj/.codex';
+    const skillsDestRoot = '/proj/.agents';
+    const report: InstallReport = {
+      target: fakeCodexTarget,
+      destRoot,
+      skillsDestRoot,
+      files: [
+        { dest: join(destRoot, 'agents', 'sw-planner.toml'), status: 'new' },
+        { dest: join(skillsDestRoot, 'skills', 'sw-pipeline', 'SKILL.md'), status: 'new' },
+      ],
+    };
+    const body = formatTargetBody(report, true).map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+    assert.ok(body.some((l) => /new\s+agents\/sw-planner\.toml/.test(l)));
+    assert.ok(body.some((l) => /new\s+skills\/sw-pipeline\/SKILL\.md/.test(l)));
+    assert.ok(!body.some((l) => l.includes('../.agents')));
+  });
+
+  it('printTargetReport header is single-root or split-root', () => {
+    const lines: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' '));
+    };
+    try {
+      printTargetReport(
+        {
+          target: fakeTarget,
+          destRoot: '/proj/.cursor',
+          files: [{ dest: '/proj/.cursor/agents/x.md', status: 'new' }],
+        },
+        { verbose: false, quiet: false },
+      );
+      printTargetReport(
+        {
+          target: fakeCodexTarget,
+          destRoot: '/proj/.codex',
+          skillsDestRoot: '/proj/.agents',
+          files: [{ dest: '/proj/.codex/agents/sw-planner.toml', status: 'new' }],
+        },
+        { verbose: false, quiet: false },
+      );
+      assert.ok(lines.some((l) => l.includes('Cursor → /proj/.cursor')));
+      assert.ok(lines.some((l) => l.includes('Codex → /proj/.codex + /proj/.agents')));
+    } finally {
+      console.log = original;
+    }
   });
 
   it('quiet suppresses target and artifact report bodies', () => {

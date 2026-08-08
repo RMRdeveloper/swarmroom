@@ -19,6 +19,7 @@ export interface InstalledFile {
 export interface InstallReport {
   readonly target: Target;
   readonly destRoot: string;
+  readonly skillsDestRoot?: string;
   readonly files: readonly InstalledFile[];
 }
 
@@ -64,31 +65,35 @@ export async function install(
   assetsRoot: string = defaultAssetsDir,
 ): Promise<InstallReport> {
   const { target, root } = inst;
+  const skillsRoot = inst.skillsRoot ?? root;
   const sources = [...agents.map((n) => agentSource(assetsRoot, n)), ...skills.map((n) => skillSource(assetsRoot, n))];
   await assertSourcesExist(sources);
 
   const files: InstalledFile[] = [];
 
   for (const name of agents) {
-    const dest = join(root, target.agentsDir, `${name}.md`);
+    const dest = join(root, target.agentsDir, `${name}.${target.agentExt}`);
     files.push({ dest, status: await put(dest, agentSource(assetsRoot, name), target.rewriteAgent, overwrite) });
   }
 
   for (const name of skills) {
-    const dest = join(root, target.skillsDir, name, 'SKILL.md');
+    const dest = join(skillsRoot, target.skillsDir, name, 'SKILL.md');
     files.push({ dest, status: await put(dest, skillSource(assetsRoot, name), target.rewriteSkill, overwrite) });
   }
 
-  return { target, destRoot: root, files };
+  if (inst.skillsRoot === undefined || inst.skillsRoot === root) {
+    return { target, destRoot: root, files };
+  }
+  return { target, destRoot: root, skillsDestRoot: inst.skillsRoot, files };
 }
 
-/** True if any file for this target already exists at root. */
-export async function anyPresent(root: string, target: Target): Promise<boolean> {
+/** True if any file for this target already exists under the agent or skills tree. */
+export async function anyPresent(root: string, target: Target, skillsRoot: string = root): Promise<boolean> {
   for (const name of agents) {
-    if (await exists(join(root, target.agentsDir, `${name}.md`))) return true;
+    if (await exists(join(root, target.agentsDir, `${name}.${target.agentExt}`))) return true;
   }
   for (const name of skills) {
-    if (await exists(join(root, target.skillsDir, name, 'SKILL.md'))) return true;
+    if (await exists(join(skillsRoot, target.skillsDir, name, 'SKILL.md'))) return true;
   }
   return false;
 }

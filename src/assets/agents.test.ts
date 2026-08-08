@@ -117,8 +117,14 @@ function assertIdenticalBlocks(blocks: readonly string[], label: string): string
 function assertAgentSurvivesRewrites(name: string, source: string): void {
   for (const target of targets) {
     const rewritten = target.rewriteAgent(source);
-    assert.match(rewritten, /^description:/m, `${name}@${target.id}: rewritten source must keep description:`);
     assert.ok(!rewritten.includes('\n\n\n'), `${name}@${target.id}: rewritten source has three consecutive newlines`);
+    if (target.id === 'codex') {
+      assert.match(rewritten, /^name = /m, `${name}@${target.id}: expected TOML name =`);
+      assert.match(rewritten, /^description = /m, `${name}@${target.id}: expected TOML description =`);
+      assert.match(rewritten, /^developer_instructions = '''/m, `${name}@${target.id}: expected TOML developer_instructions = '''`);
+      continue;
+    }
+    assert.match(rewritten, /^description:/m, `${name}@${target.id}: rewritten source must keep description:`);
     if (target.id === 'opencode' || target.id === 'claude') {
       assert.match(rewritten, /^mode: subagent$/m, `${name}@${target.id}: expected mode: subagent`);
     }
@@ -202,6 +208,21 @@ describe('agent prompt assets', () => {
       blockThrough(byName[n]!, 'Findings contract (one line per finding)', FINDINGS_END),
     );
     assertIdenticalBlocks(blocks, 'findings');
+  });
+
+  it('keeps read-first mandatory and Task instructions from bypassing guidelines', () => {
+    const precedence =
+      'Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.';
+    assert.ok(byName['sw-planner']!.includes('never skip'));
+    assert.ok(byName['sw-implementer']!.includes('never skip'));
+    assert.ok(byName['sw-planner']!.includes(precedence));
+    assert.ok(byName['sw-implementer']!.includes(precedence));
+    for (const name of ['sw-planner', 'sw-implementer'] as const) {
+      const body = byName[name]!.toLowerCase();
+      assert.ok(!body.includes('ignore the coding guidelines'), `${name} must not bypass guidelines`);
+      assert.ok(!body.includes('skip verification'), `${name} must not skip verification`);
+      assert.ok(!body.includes('skip the required'), `${name} must not skip required architecture`);
+    }
   });
 
   it('survives dropToBase and subagent rewrites', () => {

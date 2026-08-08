@@ -5,10 +5,12 @@ import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
 import { targets } from '../domain/targets.ts';
-import { install, installGuidelines } from './installer.ts';
+import { anyPresent, install, installGuidelines } from './installer.ts';
 
 const cursor = targets.find((t) => t.id === 'cursor');
 assert.ok(cursor);
+const codex = targets.find((t) => t.id === 'codex');
+assert.ok(codex);
 
 describe('installer', () => {
   const dirs: string[] = [];
@@ -77,5 +79,50 @@ describe('installer', () => {
       assert.match(err.message, /CODING_GUIDELINES\.md/);
       return true;
     });
+  });
+
+  it('installs Codex agents as toml and skills under a separate root', async () => {
+    const agentRoot = await tempDir();
+    const skillRoot = await tempDir();
+    const report = await install({ target: codex, root: agentRoot, skillsRoot: skillRoot }, true);
+
+    assert.equal(report.destRoot, agentRoot);
+    assert.equal(report.skillsDestRoot, skillRoot);
+
+    const agentFiles = report.files.filter((f) => f.dest.endsWith('.toml'));
+    const skillFiles = report.files.filter((f) => f.dest.endsWith('SKILL.md'));
+    assert.ok(agentFiles.length > 0);
+    assert.ok(skillFiles.length > 0);
+    assert.ok(agentFiles.every((f) => f.dest.startsWith(join(agentRoot, codex.agentsDir))));
+    assert.ok(skillFiles.every((f) => f.dest.startsWith(join(skillRoot, codex.skillsDir))));
+
+    const sampleAgent = agentFiles[0]!;
+    const content = await readFile(sampleAgent.dest, 'utf8');
+    assert.match(content, /name =/);
+    assert.match(content, /developer_instructions/);
+  });
+
+  it('skips and overwrites Codex files independently of root split', async () => {
+    const agentRoot = await tempDir();
+    const skillRoot = await tempDir();
+    const inst = { target: codex, root: agentRoot, skillsRoot: skillRoot };
+    await install(inst, true);
+    const skipped = await install(inst, false);
+    assert.ok(skipped.files.every((f) => f.status === 'skipped'));
+    const updated = await install(inst, true);
+    assert.ok(updated.files.every((f) => f.status === 'updated'));
+  });
+
+  it('anyPresent is true if either Codex tree has files', async () => {
+    const agentRoot = await tempDir();
+    const skillRoot = await tempDir();
+    assert.equal(await anyPresent(agentRoot, codex, skillRoot), false);
+
+    await install({ target: codex, root: agentRoot, skillsRoot: await tempDir() }, true);
+    assert.equal(await anyPresent(agentRoot, codex, skillRoot), true);
+
+    const emptyAgents = await tempDir();
+    await install({ target: codex, root: await tempDir(), skillsRoot: skillRoot }, true);
+    assert.equal(await anyPresent(emptyAgents, codex, skillRoot), true);
   });
 });

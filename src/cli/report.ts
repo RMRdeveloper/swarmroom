@@ -24,6 +24,14 @@ export function displayPath(dest: string, destRoot: string): string {
   return rel;
 }
 
+/** Relative to destRoot, else skillsDestRoot, else absolute. */
+export function displayPathForReport(dest: string, destRoot: string, skillsDestRoot?: string): string {
+  const underAgents = displayPath(dest, destRoot);
+  if (underAgents !== dest) return underAgents;
+  if (skillsDestRoot === undefined) return dest;
+  return displayPath(dest, skillsDestRoot);
+}
+
 /** Status count lines; hides zero counts. */
 export function formatStatusCounts(counts: Record<FileStatus, number>): readonly string[] {
   return STATUS_ORDER.filter((s) => counts[s] > 0).map(
@@ -35,9 +43,10 @@ export function formatStatusCounts(counts: Record<FileStatus, number>): readonly
 export function formatFileLines(
   files: readonly InstalledFile[],
   destRoot: string,
+  skillsDestRoot?: string,
 ): readonly string[] {
   return files.map((f) => {
-    const path = displayPath(f.dest, destRoot);
+    const path = displayPathForReport(f.dest, destRoot, skillsDestRoot);
     return `  ${style.status(f.status, f.status.padEnd(7))}  ${path}`;
   });
 }
@@ -46,7 +55,7 @@ export function formatFileLines(
 export function formatTargetBody(report: InstallReport, verbose: boolean): readonly string[] {
   const counts = countByStatus(report.files);
   const lines = [...formatStatusCounts(counts)];
-  if (verbose) lines.push(...formatFileLines(report.files, report.destRoot));
+  if (verbose) lines.push(...formatFileLines(report.files, report.destRoot, report.skillsDestRoot));
   return lines;
 }
 
@@ -80,7 +89,12 @@ export function printOpening(version: string, scope: Scope, dir: string): void {
 /** Per-target summary; quiet no-ops. Default hides zero counts; verbose lists files. */
 export function printTargetReport(report: InstallReport, options: ReportOptions): void {
   if (options.quiet) return;
-  console.log(`\n${report.target.label} → ${report.destRoot}`);
+  const split =
+    report.skillsDestRoot !== undefined && report.skillsDestRoot !== report.destRoot;
+  const header = split
+    ? `\n${report.target.label} → ${report.destRoot} + ${report.skillsDestRoot}`
+    : `\n${report.target.label} → ${report.destRoot}`;
+  console.log(header);
   for (const line of formatTargetBody(report, options.verbose)) {
     console.log(line);
   }

@@ -31,7 +31,8 @@ export type ParseResult =
   | { readonly kind: 'ok'; readonly options: Options }
   | { readonly kind: 'help' }
   | { readonly kind: 'version' }
-  | { readonly kind: 'error'; readonly message: string };
+  | { readonly kind: 'error'; readonly message: string }
+  | { readonly kind: 'tasks'; readonly dir: string; readonly json: boolean };
 
 const HELP_HINT = 'Run with --help for usage.';
 
@@ -49,6 +50,8 @@ export function formatHelp(): string {
     ['--force', 'overwrite existing files without asking'],
     ['-v, --verbose', 'list each installed file'],
     ['-q, --quiet', 'suppress per-target summaries (opening/closing still print)'],
+    ['tasks', 'show task graph status for this project'],
+    ['--json', 'with tasks: dump the graph as JSON'],
     ['-h, --help', 'show this help'],
     ['-V, --version', 'print version'],
   ];
@@ -59,6 +62,7 @@ export function formatHelp(): string {
 
 Usage:
   swarmroom [options]
+  swarmroom tasks [--dir <path>] [--json]
 
 Also:
   node src/cli.ts [options]
@@ -72,8 +76,44 @@ ${options}
 With no editor flags in a TTY, prompts interactively. Re-run to update installed files.`;
 }
 
+function parseTasksArgs(argv: readonly string[]): ParseResult {
+  let dir = cwd();
+  let json = false;
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === undefined) continue;
+
+    if (a === '--help' || a === '-h') return { kind: 'help' };
+    if (a === '--version' || a === '-V') return { kind: 'version' };
+
+    if (a === '--json') {
+      json = true;
+      continue;
+    }
+
+    if (a === '--dir') {
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { kind: 'error', message: `--dir requires a path\n${HELP_HINT}` };
+      }
+      dir = next;
+      i += 1;
+      continue;
+    }
+
+    return { kind: 'error', message: `unknown option: ${a}\n${HELP_HINT}` };
+  }
+
+  return { kind: 'tasks', dir, json };
+}
+
 /** Parse argv (without node/script). Validates unknown flags and --dir value. */
 export function parseArgs(argv: readonly string[]): ParseResult {
+  if (argv[0] === 'tasks') {
+    return parseTasksArgs(argv.slice(1));
+  }
+
   const picked: Target[] = [];
   let scope: Scope = 'project';
   let dir = cwd();

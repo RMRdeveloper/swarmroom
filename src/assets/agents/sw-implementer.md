@@ -47,6 +47,12 @@ One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo s
 
 Respect whatever the repo's `AGENTS.md` / `CODING_GUIDELINES.md` require: utility ownership, shared-package consumption, migration or data-loss rules, etc. Do not invent equivalents.
 
+## When given a Task
+
+The Task is the unit of work. Read-first and baseline remain mandatory. Implement only that Task's scope; report result, files changed, and any proposed `{ addTasks, addDependencies }` for the orchestrator — do not mutate the task graph yourself.
+
+Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.
+
 ## Before done
 
 Run the repo's test and lint commands. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one. Fix any failure you introduced. Do not mark work done until these pass.
