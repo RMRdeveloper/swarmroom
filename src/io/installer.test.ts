@@ -6,6 +6,7 @@ import { after, describe, it } from 'node:test';
 
 import { targets } from '../domain/targets.ts';
 import { anyPresent, install, installGuidelines } from './installer.ts';
+import { assetsDir } from './package-root.ts';
 
 const cursor = targets.find((t) => t.id === 'cursor');
 assert.ok(cursor);
@@ -111,6 +112,23 @@ describe('installer', () => {
     assert.ok(skipped.files.every((f) => f.status === 'skipped'));
     const updated = await install(inst, true);
     assert.ok(updated.files.every((f) => f.status === 'updated'));
+  });
+
+  it('copies transcribe-audio companion script as-is', async () => {
+    const source = await readFile(join(assetsDir(), 'skills', 'transcribe-audio', 'transcribe.py'), 'utf8');
+
+    const root = await tempDir();
+    const report = await install({ target: cursor, root }, true);
+    const dest = join(root, cursor.skillsDir, 'transcribe-audio', 'transcribe.py');
+    assert.equal(await readFile(dest, 'utf8'), source);
+    assert.ok(report.files.some((f) => f.dest === dest));
+
+    const agentRoot = await tempDir();
+    const skillRoot = await tempDir();
+    const codexReport = await install({ target: codex, root: agentRoot, skillsRoot: skillRoot }, true);
+    const codexDest = join(skillRoot, codex.skillsDir, 'transcribe-audio', 'transcribe.py');
+    assert.equal(await readFile(codexDest, 'utf8'), source);
+    assert.ok(codexReport.files.some((f) => f.dest === codexDest));
   });
 
   it('anyPresent is true if either Codex tree has files', async () => {

@@ -5,7 +5,7 @@
 [![node](https://img.shields.io/node/v/@rmrdeveloper/swarmroom)](https://www.npmjs.com/package/@rmrdeveloper/swarmroom)
 [![license](https://img.shields.io/github/license/RMRdeveloper/swarmroom)](LICENSE)
 
-Install the same `sw-*` coding agents into **Cursor**, **opencode**, **Claude Code**, or **Codex**. One source of truth; each editor gets files it can load.
+Same coding agents and skills in **Cursor**, **opencode**, **Claude Code**, and **Codex**. One install; each editor gets files it already knows how to load.
 
 ## Install
 
@@ -28,19 +28,31 @@ Or `npm i -g @rmrdeveloper/swarmroom`, then `swarmroom`. Re-run the same command
 
 | Editor | Agents | Skills |
 | --- | --- | --- |
-| Cursor | `.cursor/agents/*.md` | `.cursor/skills/{sw-pipeline,grilling}/SKILL.md` |
-| opencode | `.opencode/agent/*.md` | `.opencode/skill/{sw-pipeline,grilling}/SKILL.md` |
-| Claude Code | `.claude/agents/*.md` | `.claude/skills/{sw-pipeline,grilling}/SKILL.md` |
-| Codex | `.codex/agents/*.toml` | `.agents/skills/{sw-pipeline,grilling}/SKILL.md` |
+| Cursor | `.cursor/agents/*.md` | `.cursor/skills/<name>/` |
+| opencode | `.opencode/agent/*.md` | `.opencode/skill/<name>/` |
+| Claude Code | `.claude/agents/*.md` | `.claude/skills/<name>/` |
+| Codex | `.codex/agents/*.toml` | `.agents/skills/<name>/` |
+
+Each skill folder includes `SKILL.md`. Skills that ship a helper script get that file copied as-is next to it (today: `transcribe-audio` → `transcribe.py`).
 
 Project installs also copy `CODING_GUIDELINES.md` to the repo root. Global installs skip that file. Codex global skills go to `~/.agents/skills`.
 
-Then run `/sw-pipeline` (Cursor) or the `sw-pipeline` skill in your editor. Codex loads skills from `.agents/skills` (or `~/.agents/skills` when global).
+Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex loads skills from `.agents/skills` (or `~/.agents/skills` when global).
 
 ```
 sw-pipeline → (trivial? implementer → verifier)
             → else planner → implementer(s) → reviewer → fixer → verifier
 ```
+
+For non-trivial work, the planner runs `grilling` first when that skill is installed.
+
+## Skills
+
+| Skill | Role |
+| --- | --- |
+| `sw-pipeline` | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists. |
+| `grilling` | Stress-tests a plan, decision, or feature until you share one understanding. Does not write code. |
+| `transcribe-audio` | Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
 
 ## Agents
 

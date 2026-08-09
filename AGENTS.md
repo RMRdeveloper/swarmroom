@@ -2,13 +2,13 @@
 
 This repo is the installer + source-of-truth for the portable `sw-*` coding
 agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-researcher) and the
-`sw-pipeline` + `grilling` skills, installed into Cursor, opencode, Claude Code, or Codex.
+`sw-pipeline`, `grilling`, and `transcribe-audio` skills, installed into Cursor, opencode, Claude Code, or Codex.
 
 ## Source of truth (critical)
 
 - The **only** tracked source of agent/skill content is `src/assets/`:
   - `src/assets/agents/*.md`
-  - `src/assets/skills/<name>/SKILL.md`
+  - `src/assets/skills/<name>/` (`SKILL.md` plus optional companion files the installer copies as-is)
   - `src/assets/artifacts/CODING_GUIDELINES.md`
 - `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, `.agents/`, and the repo-root
   `CODING_GUIDELINES.md` are **gitignored installed copies** produced by the CLI.

@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile, stat } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { agents, skills } from '../domain/pipeline.ts';
@@ -7,8 +7,9 @@ import { assetsDir } from './package-root.ts';
 
 const defaultAssetsDir = assetsDir();
 export const guidelinesFileName = 'CODING_GUIDELINES.md';
+const SKILL_FILE_NAME = 'SKILL.md';
 const agentSource = (assetsRoot: string, name: string) => join(assetsRoot, 'agents', `${name}.md`);
-const skillSource = (assetsRoot: string, name: string) => join(assetsRoot, 'skills', name, 'SKILL.md');
+const skillSource = (assetsRoot: string, name: string) => join(assetsRoot, 'skills', name, SKILL_FILE_NAME);
 const artifactSource = (assetsRoot: string, name: string) => join(assetsRoot, 'artifacts', name);
 
 export type FileStatus = 'new' | 'updated' | 'skipped';
@@ -77,8 +78,20 @@ export async function install(
   }
 
   for (const name of skills) {
-    const dest = join(skillsRoot, target.skillsDir, name, 'SKILL.md');
+    const destDir = join(skillsRoot, target.skillsDir, name);
+    const dest = join(destDir, SKILL_FILE_NAME);
     files.push({ dest, status: await put(dest, skillSource(assetsRoot, name), target.rewriteSkill, overwrite) });
+
+    const sourceDir = join(assetsRoot, 'skills', name);
+    const entries = await readdir(sourceDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile() || entry.name === SKILL_FILE_NAME) continue;
+      const companionDest = join(destDir, entry.name);
+      files.push({
+        dest: companionDest,
+        status: await put(companionDest, join(sourceDir, entry.name), (s) => s, overwrite),
+      });
+    }
   }
 
   if (inst.skillsRoot === undefined || inst.skillsRoot === root) {
@@ -93,7 +106,7 @@ export async function anyPresent(root: string, target: Target, skillsRoot: strin
     if (await exists(join(root, target.agentsDir, `${name}.${target.agentExt}`))) return true;
   }
   for (const name of skills) {
-    if (await exists(join(skillsRoot, target.skillsDir, name, 'SKILL.md'))) return true;
+    if (await exists(join(skillsRoot, target.skillsDir, name, SKILL_FILE_NAME))) return true;
   }
   return false;
 }
