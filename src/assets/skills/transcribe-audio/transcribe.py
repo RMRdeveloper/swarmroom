@@ -13,7 +13,7 @@ def fail(message):
 
 
 if len(sys.argv) < 2:
-    fail("usage: python3 transcribe.py <audio_path>")
+    fail("usage: uv run --with faster-whisper python3 transcribe.py <audio_path>")
 
 audio_path = Path(sys.argv[1])
 if not audio_path.is_file():
@@ -31,8 +31,8 @@ try:
     from faster_whisper import WhisperModel
 except ImportError:
     fail(
-        "faster-whisper is not installed; install with: uv pip install faster-whisper. "
-        "If uv is not available, use a venv or: pip install --break-system-packages faster-whisper"
+        "This script must be invoked with: uv run --with faster-whisper python3 transcribe.py <audio_path>. "
+        "Do not run it with python3 directly or install faster-whisper separately."
     )
 
 model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")

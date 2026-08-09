@@ -19,6 +19,15 @@ const FINDING_LINE =
 const PRECEDENCE =
   'Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.';
 
+function markdownSection(markdown: string, heading: string): string {
+  const start = markdown.indexOf(heading);
+  assert.ok(start !== -1, `missing ${heading}`);
+  const afterHeading = start + heading.length;
+  const nextHeading = markdown.indexOf('\n## ', afterHeading);
+  if (nextHeading === -1) return markdown.slice(afterHeading);
+  return markdown.slice(afterHeading, nextHeading);
+}
+
 describe('sw-pipeline skill', () => {
   it('delegates to the five pipeline agents', () => {
     for (const name of ['sw-planner', 'sw-implementer', 'sw-code-reviewer', 'sw-verifier', 'sw-fixer']) {
@@ -97,12 +106,32 @@ describe('transcribe-audio skill', () => {
 
   it('prefers uv for Python dependency setup', () => {
     assert.match(transcribeSkill, /## Python dependency setup/);
-    assert.match(transcribeSkill, /Preferred: `uv pip install faster-whisper`/);
-    assert.match(transcribeSkill, /uv add faster-whisper/);
-    assert.match(transcribeSkill, /pip install uv/);
-    assert.match(transcribeSkill, /last resort/);
-    assert.match(transcribeSkill, /Fallback only/);
-    assert.match(transcribeSkill, /--break-system-packages/);
+    const setup = markdownSection(transcribeSkill, '## Python dependency setup');
+    const requirements = markdownSection(transcribeSkill, '## Requirements');
+    assert.match(setup, /uv pip install faster-whisper/);
+    assert.match(setup, /uv add faster-whisper/);
+    assert.match(setup, /pip install uv/);
+    assert.match(setup, /last resort/);
+    assert.match(setup, /--break-system-packages/);
+    assert.match(setup, /not agent actions/);
+    assert.match(setup, /Do not run them/);
+    assert.ok(
+      !requirements.includes('uv pip install'),
+      'Requirements must not command uv pip install',
+    );
+  });
+
+  it('How to run contains exactly the canonical uv run --with invoke', () => {
+    const howToRun = markdownSection(transcribeSkill, '## How to run');
+    assert.ok(howToRun.includes('uv run --with faster-whisper python3 transcribe.py'));
+    const fenced = howToRun.match(/```\n([\s\S]*?)\n```/);
+    assert.ok(fenced?.[1], 'missing How to run fenced command');
+    assert.equal(fenced[1], 'uv run --with faster-whisper python3 transcribe.py <audio_path>');
+    assert.ok(
+      howToRun.includes(
+        'Do not run `python3 transcribe.py` directly or install `faster-whisper` separately',
+      ),
+    );
   });
 
   it('documents externally-managed-environment', () => {
@@ -150,14 +179,19 @@ describe('transcribe-audio skill', () => {
     assert.ok(!transcribePy.includes('WhisperModel("small"'));
   });
 
-  it('ImportError install hint leads with uv', () => {
+  it('ImportError points at uv run --with faster-whisper, not uv pip install', () => {
     assert.match(transcribePy, /except ImportError:/);
-    const uvHint = 'uv pip install faster-whisper';
-    const uvAt = transcribePy.indexOf(uvHint);
-    const fallbackAt = transcribePy.indexOf('--break-system-packages');
-    assert.ok(uvAt !== -1, 'missing uv pip install faster-whisper');
-    assert.ok(fallbackAt !== -1, 'missing --break-system-packages fallback');
-    assert.ok(uvAt < fallbackAt, 'uv pip install faster-whisper must lead');
+    assert.ok(
+      transcribePy.includes(
+        'This script must be invoked with: uv run --with faster-whisper python3 transcribe.py <audio_path>.',
+      ),
+      'ImportError must name the canonical invoke',
+    );
+    assert.ok(!transcribePy.includes('uv pip install'), 'ImportError must not suggest uv pip install');
+  });
+
+  it('usage string is the canonical uv run --with invoke', () => {
+    assert.ok(transcribePy.includes('usage: uv run --with faster-whisper python3 transcribe.py <audio_path>'));
   });
 });
 
