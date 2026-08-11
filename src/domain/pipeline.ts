@@ -3,6 +3,7 @@ export const skills: readonly string[] = ['sw-pipeline', 'grilling', 'transcribe
 export const agents: readonly string[] = [
   'sw-planner',
   'sw-implementer',
+  'sw-critic',
   'sw-code-reviewer',
   'sw-verifier',
   'sw-fixer',

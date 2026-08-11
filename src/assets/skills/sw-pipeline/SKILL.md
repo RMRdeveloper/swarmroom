@@ -1,13 +1,14 @@
 ---
 name: sw-pipeline
-description: Run the full sw-* pipeline — planner, implementer, code-reviewer, verifier, fixer.
+description: Run the full sw-* pipeline — planner, critic, implementer, code-reviewer, verifier, fixer.
 argument-hint: Describe the feature/task to build or the diff to review.
 disable-model-invocation: true
 ---
 
 Run the sw-\* pipeline end to end via an internal Task Graph. Delegate each
-stage to its subagent (`sw-planner`, `sw-implementer`, `sw-code-reviewer`,
-`sw-verifier`, `sw-fixer`); do not substitute your own judgement.
+stage to its subagent (`sw-planner`, `sw-critic`, `sw-implementer`,
+`sw-code-reviewer`, `sw-verifier`, `sw-fixer`); do not substitute your own
+judgement.
 
 Read-first is mandatory for every coding agent: `CODING_GUIDELINES.md`,
 `AGENTS.md` / `CLAUDE.md`, `CONTEXT.md` / `CONTEXT-MAP.md` when present.
@@ -19,7 +20,10 @@ Task instructions may narrow scope, files, and acceptance checks for this run; t
   `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no grilling.
 - **Otherwise**: `sw-planner` runs first (read-first, then plan). For
   non-trivial work, if a `grilling` skill is available, only the planner runs
-  it. Planner emits a prose plan plus a compact JSON task graph.
+  it. Planner emits a prose plan plus a compact JSON task graph. After the
+  plan is emitted, run `sw-critic` on the plan **before** any implementation
+  starts. If Critical findings → return to `sw-planner` (not
+  `sw-implementer`). High/Medium do not block (only Critical gates).
 
 ## Task graph
 
@@ -44,8 +48,9 @@ Run the safe ready set:
 
 ## Quality phase
 
-After implementation tasks: `sw-code-reviewer` → if Critical, `sw-fixer`
-(max 2 passes) → `sw-verifier`. Findings stay one line:
+After implementation tasks: run `sw-critic` **in parallel** with
+`sw-code-reviewer` (both read-only). If **either** reports Critical →
+`sw-fixer` (max 2 passes) → then `sw-verifier`. Findings stay one line:
 
 `FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>`
 

@@ -36,22 +36,33 @@ already uses.
 - **Decisions** (scope, trade-offs, product intent) belong to the user — ask and
   wait.
 
-If a fact lookup is in flight, treat it as an unsettled prerequisite: ask the
-rest of the current frontier now; hold only the questions that depend on that
-fact for a later round.
+If a fact lookup is in flight, treat it as an unsettled prerequisite: under the
+round cap, ask eligible frontier questions that do not depend on that fact;
+hold dependent questions for a later round.
 
 ## Rounds and frontier
 
-Work the tree in **rounds**. The **frontier** is every decision whose
-prerequisites are already settled — the questions you can ask _now_ without
-guessing unanswered ones.
+Work the tree in **rounds**. The **frontier** is the full set of every decision
+whose prerequisites are already settled — questions you can ask _now_ without
+guessing unanswered ones. Each round asks a **batch** ⊆ frontier (never dump
+the full frontier).
+
+**Cap:** at most **3** questions per round. If the frontier is larger, fill the
+batch as follows (still under the cap and independence rule): include previously
+skipped frontier items first (all that fit; at least one slot when any skipped
+item is eligible), then fill remaining slots by which questions unblock the most
+downstream work. Carry the rest.
 
 Each round:
 
-1. Ask the **whole** frontier.
-2. Number every question.
-3. Give your **recommended answer** for each.
-4. Wait for the user's answers before the next round.
+1. Pick ≤3 questions from the frontier using the skip-first then leverage rule
+   above. The asked set must be **independent** — no asked Q depends on another
+   still-open Q in that round (same-round dependency → later round).
+2. Number questions continuously across rounds (never restart at 1). Re-asking a
+   skipped decision keeps its original Q number; only new decisions get the next
+   unused number.
+3. Give a **recommended answer** for each.
+4. Wait for the user before the next round.
 
 Format each question like this (plain markdown, no emoji):
 
@@ -62,14 +73,26 @@ Format each question like this (plain markdown, no emoji):
 Recommended: <your recommended answer>
 ```
 
-A question whose answer depends on another still-open question in this round
-belongs in a _later_ round, not this one. After each round, recompute the
-frontier from the settled tree and continue.
+The user may answer in any order, skip and return later, reply
+`go with recommended` to accept every recommendation in the **current** round,
+or accept Recommended for one question with `recommended` / `go with recommended
+for Qn`.
+
+**Advance** only when every question in the current round is answered,
+explicitly skipped, or covered by a full-round or per-question Recommended
+acceptance. If the user answers some questions and is silent on others, do not
+advance, do not assume, and do not restart numbering: briefly nudge only the
+unresolved ones and wait. Skipped questions remain on the frontier until
+answered, explicitly marked out of scope, or the user accepts Recommended for
+them.
+
+After each round, recompute the frontier from the settled tree and continue.
 
 ## Exit: Settled understanding
 
-The session is done when the frontier is empty — every branch visited, nothing
-silently assumed. Then output a short **Settled understanding** block:
+The session is done when the frontier is empty — every remaining branch is
+settled or explicitly out of scope, nothing silently assumed. Then output a
+short **Settled understanding** block:
 
 - Decisions made (bullets)
 - Out of scope

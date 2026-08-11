@@ -9,6 +9,7 @@ import { targets } from '../domain/targets.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pipelineSkill = readFileSync(join(here, 'skills', 'sw-pipeline', 'SKILL.md'), 'utf8');
+const grillingSkill = readFileSync(join(here, 'skills', 'grilling', 'SKILL.md'), 'utf8');
 const transcribeDir = join(here, 'skills', 'transcribe-audio');
 const transcribeSkill = readFileSync(join(transcribeDir, 'SKILL.md'), 'utf8');
 const transcribePy = readFileSync(join(transcribeDir, 'transcribe.py'), 'utf8');
@@ -29,8 +30,15 @@ function markdownSection(markdown: string, heading: string): string {
 }
 
 describe('sw-pipeline skill', () => {
-  it('delegates to the five pipeline agents', () => {
-    for (const name of ['sw-planner', 'sw-implementer', 'sw-code-reviewer', 'sw-verifier', 'sw-fixer']) {
+  it('delegates to the six pipeline agents', () => {
+    for (const name of [
+      'sw-planner',
+      'sw-implementer',
+      'sw-critic',
+      'sw-code-reviewer',
+      'sw-verifier',
+      'sw-fixer',
+    ]) {
       assert.ok(pipelineSkill.includes(name), `missing ${name}`);
     }
   });
@@ -80,6 +88,28 @@ describe('skills registry', () => {
       const skillPath = join(here, 'skills', name, 'SKILL.md');
       assert.ok(existsSync(skillPath), `missing ${skillPath}`);
     }
+  });
+});
+
+describe('grilling skill', () => {
+  it('caps each round at 3 and does not dump the frontier', () => {
+    assert.match(grillingSkill, /at most \*\*3\*\*/);
+    assert.match(grillingSkill, /never dump/i);
+    assert.ok(!/ask the whole frontier/i.test(grillingSkill));
+  });
+
+  it('numbers questions continuously across rounds', () => {
+    assert.match(grillingSkill, /continuously across rounds/i);
+    assert.match(grillingSkill, /never restart at 1/i);
+  });
+
+  it('accepts go with recommended for the current round', () => {
+    assert.ok(grillingSkill.includes('go with recommended'));
+  });
+
+  it('distinguishes frontier from batch and keeps asked set independent', () => {
+    assert.match(grillingSkill, /batch.*frontier|frontier.*batch/is);
+    assert.match(grillingSkill, /independent/i);
   });
 });
 

@@ -41,10 +41,10 @@ Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex loa
 
 ```
 sw-pipeline → (trivial? implementer → verifier)
-            → else planner → implementer(s) → reviewer → fixer → verifier
+            → else planner → critic → implementer(s) → reviewer∥critic → fixer → verifier
 ```
 
-For non-trivial work, the planner runs `grilling` first when that skill is installed.
+On **Critical** from the plan-stage critic, the pipeline replans (back to planner). For non-trivial work, the planner runs `grilling` first when that skill is installed.
 
 ## Skills
 
@@ -60,6 +60,7 @@ For non-trivial work, the planner runs `grilling` first when that skill is insta
 | --- | --- | --- |
 | `sw-planner` | no | Plan any non-trivial change before editing |
 | `sw-implementer` | yes | Writes code to the repo's standards, then runs checks |
+| `sw-critic` | no | Adversarial Red Team critique of plans and implementations (logical failures, assumptions, architecture, YAGNI); not style review (`sw-code-reviewer`) or verify-runs (`sw-verifier`) |
 | `sw-code-reviewer` | no | Reviews diffs; one `FINDING` line per issue |
 | `sw-verifier` | no | Confirms the work exists, is wired, and passes tests |
 | `sw-fixer` | yes | Fixes findings, severity-first, max two passes each |
