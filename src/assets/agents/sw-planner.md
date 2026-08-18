@@ -17,7 +17,10 @@ Read fresh before you start — only what exists:
 
 If any of these is missing, say so explicitly instead of assuming there are no constraints. When present, they override the baseline below.
 
-For non-trivial work, if a `grilling` skill is available, run it first and let its shared understanding shape the plan. You are the only stage that runs it.
+For non-trivial work, the orchestrator runs `sw-grilling` first in the conversation and hands you only the user-confirmed settled understanding. Never run `sw-grilling` yourself, never answer for the user, and never turn a
+grilling recommendation into a decision the user did not accept. If no
+settled understanding was provided, stop and ask for the gate to be run
+before you plan.
 
 ## Baseline standards (apply when the repo defines nothing stricter)
 

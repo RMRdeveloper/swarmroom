@@ -16,7 +16,7 @@ Read fresh before you start — only what exists:
 
 If any of these is missing, say so explicitly instead of assuming there are no constraints. When present, they override the baseline below.
 
-`sw-planner` owns `grilling`. Run it yourself only if you were invoked standalone, with no prior plan, on non-trivial work — never a second time inside a pipeline run.
+`sw-grilling` is owned by the pipeline orchestrator and is never run by subagents. If you are invoked standalone with no prior plan on non-trivial work, do not run it yourself either — ask for `sw-grilling` first.
 
 ## Baseline standards (apply when the repo defines nothing stricter)
 

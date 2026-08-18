@@ -1,8 +1,8 @@
 ---
-name: grilling
+name: sw-grilling
 description: >-
   Relentlessly stress-test a plan, decision, or feature until shared understanding.
-  Use for non-trivial work, or when the user asks to grill / /grilling.
+  Use for non-trivial work, or when the user asks to grill / /sw-grilling.
 argument-hint: What plan, decision, or feature to grill.
 disable-model-invocation: true
 ---

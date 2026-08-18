@@ -14,13 +14,32 @@ Read-first is mandatory for every coding agent: `CODING_GUIDELINES.md`,
 `AGENTS.md` / `CLAUDE.md`, `CONTEXT.md` / `CONTEXT-MAP.md` when present.
 Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.
 
+## Interactive gate: sw-grilling
+
+For every non-trivial request, **you** run `sw-grilling` directly in this
+conversation before any planner task exists. `sw-grilling` is a user-facing
+interview, never a subagent task: do not delegate it to `sw-planner`,
+`sw-implementer`, `sw-fixer`, or any other agent.
+
+`sw-grilling` asks the user questions in rounds and gives a recommended answer
+per question. Only the user may accept or reject those recommendations — with
+an explicit answer, or an explicit `go with recommended` / `recommended` —
+never the pipeline and never any subagent. A recommendation is not a decision
+until the user accepts it.
+
+While any round is pending, **pause**: show the questions, wait for the user,
+and do not start `sw-planner`, `sw-critic`, or any implementation task. When
+`sw-grilling` reaches a settled, user-confirmed understanding, pass that
+settled understanding to `sw-planner` as input. The planner never runs
+`sw-grilling` itself and never answers for the user.
+
 ## Adaptive triage
 
 - **Trivial** (typo, mechanical rename, unambiguous one-liner): graph is
-  `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no grilling.
-- **Otherwise**: `sw-planner` runs first (read-first, then plan). For
-  non-trivial work, if a `grilling` skill is available, only the planner runs
-  it. Planner emits a prose plan plus a compact JSON task graph. After the
+  `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no `sw-grilling`.
+- **Otherwise**: run the `sw-grilling` gate first (see above). After the user
+  confirms the settled understanding, `sw-planner` runs (read-first, then
+  plan). Planner emits a prose plan plus a compact JSON task graph. After the
   plan is emitted, run `sw-critic` on the plan **before** any implementation
   starts. If Critical findings → return to `sw-planner` (not
   `sw-implementer`). High/Medium do not block (only Critical gates).

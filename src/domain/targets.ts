@@ -136,7 +136,7 @@ export const targets: readonly Target[] = [
     root: '.opencode',
     agentsDir: 'agent',
     agentExt: 'md',
-    skillsDir: 'skill',
+    skillsDir: 'skills',
     globalBase: join(homedir(), '.config', 'opencode'),
     rewriteAgent: subagent,
     rewriteSkill: dropToBase,

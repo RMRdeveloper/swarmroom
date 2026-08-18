@@ -1,6 +1,6 @@
 {
   "name": "@rmrdeveloper/swarmroom",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Installable sw-* pipeline agents (planner, implementer, critic, reviewer, verifier, fixer, researcher, web-researcher) for Cursor, opencode, Claude Code, and Codex.",
   "type": "module",
   "bin": {

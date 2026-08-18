@@ -27,10 +27,10 @@ const FINDINGS_AGENTS = ['sw-code-reviewer', 'sw-verifier', 'sw-fixer'] as const
 const COMMAND_DETECT_AGENTS = ['sw-planner', 'sw-implementer', 'sw-verifier', 'sw-fixer'] as const;
 
 const GRILLING_OWNER =
-  'For non-trivial work, if a `grilling` skill is available, run it first and let its shared understanding shape the plan. You are the only stage that runs it.';
+  'For non-trivial work, the orchestrator runs `sw-grilling` first in the conversation and hands you only the user-confirmed settled understanding.';
 
 const GRILLING_STANDALONE =
-  '`sw-planner` owns `grilling`. Run it yourself only if you were invoked standalone, with no prior plan, on non-trivial work — never a second time inside a pipeline run.';
+  '`sw-grilling` is owned by the pipeline orchestrator and is never run by subagents.';
 
 const SENTENCE_D =
   "Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one.";
@@ -180,6 +180,9 @@ describe('agent prompt assets', () => {
     assert.ok(byName['sw-planner']!.includes(GRILLING_OWNER));
     assert.ok(byName['sw-implementer']!.includes(GRILLING_STANDALONE));
     assert.ok(byName['sw-fixer']!.includes(GRILLING_STANDALONE));
+    assert.ok(byName['sw-planner']!.includes('Never run `sw-grilling` yourself'));
+    assert.ok(byName['sw-planner']!.includes('never answer for the user'));
+    assert.ok(byName['sw-planner']!.includes('stop and ask for the'));
     const fromImpl = byName['sw-implementer']!.slice(
       byName['sw-implementer']!.indexOf(GRILLING_STANDALONE),
       byName['sw-implementer']!.indexOf(GRILLING_STANDALONE) + GRILLING_STANDALONE.length,

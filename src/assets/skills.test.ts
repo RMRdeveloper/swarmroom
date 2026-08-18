@@ -9,8 +9,9 @@ import { targets } from '../domain/targets.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pipelineSkill = readFileSync(join(here, 'skills', 'sw-pipeline', 'SKILL.md'), 'utf8');
-const grillingSkill = readFileSync(join(here, 'skills', 'grilling', 'SKILL.md'), 'utf8');
-const transcribeDir = join(here, 'skills', 'transcribe-audio');
+const specSkill = readFileSync(join(here, 'skills', 'sw-spec', 'SKILL.md'), 'utf8');
+const grillingSkill = readFileSync(join(here, 'skills', 'sw-grilling', 'SKILL.md'), 'utf8');
+const transcribeDir = join(here, 'skills', 'sw-transcribe-audio');
 const transcribeSkill = readFileSync(join(transcribeDir, 'SKILL.md'), 'utf8');
 const transcribePy = readFileSync(join(transcribeDir, 'transcribe.py'), 'utf8');
 
@@ -53,9 +54,13 @@ describe('sw-pipeline skill', () => {
     assert.ok(!pipelineSkill.toLowerCase().includes('guidelines are optional'));
   });
 
-  it('skips planner only for trivial work; planner owns grilling otherwise', () => {
-    assert.match(pipelineSkill, /No `sw-planner`, no grilling/);
-    assert.match(pipelineSkill, /only the planner runs/);
+  it('runs the interactive grilling gate before the planner', () => {
+    assert.match(pipelineSkill, /## Interactive gate: sw-grilling/);
+    assert.match(pipelineSkill, /No `sw-planner`, no `sw-grilling`/);
+    assert.match(pipelineSkill, /run `sw-grilling` directly/);
+    assert.match(pipelineSkill, /pause/);
+    assert.match(pipelineSkill, /recommended/);
+    assert.match(pipelineSkill, /do not start `sw-planner`/);
   });
 
   it('survives rewriteSkill for every target', () => {
@@ -89,9 +94,104 @@ describe('skills registry', () => {
       assert.ok(existsSync(skillPath), `missing ${skillPath}`);
     }
   });
+
+  it('prefixes every skill with sw- to avoid clashing with user skills', () => {
+    for (const name of skills) {
+      assert.ok(name.startsWith('sw-'), `${name} must start with sw-`);
+    }
+  });
 });
 
-describe('grilling skill', () => {
+describe('sw-spec skill', () => {
+  it('has valid frontmatter', () => {
+    const [before, frontmatter] = specSkill.split('---');
+    assert.equal(before, '');
+    assert.ok(frontmatter);
+    assert.match(frontmatter, /name:\s*sw-spec/);
+    assert.match(frontmatter, /description:\s*\S/);
+    assert.match(frontmatter, /argument-hint:/);
+    assert.match(frontmatter, /disable-model-invocation:/);
+  });
+
+  it('stores specs under docs/specs in the target project root', () => {
+    assert.match(specSkill, /docs\/specs\//);
+    assert.match(specSkill, /target project root/);
+  });
+
+  it('resolves the target project root explicitly', () => {
+    assert.match(specSkill, /Resolve the root of the \*\*target\*\* project/);
+    assert.match(specSkill, /ambiguous/);
+    assert.match(specSkill, /stop and ask/);
+  });
+
+  it('does not overwrite or auto-suffix existing specs', () => {
+    assert.match(specSkill, /already exists, stop/);
+    assert.match(specSkill, /do not overwrite silently/);
+    assert.match(specSkill, /do not\n?auto-suffix/);
+    assert.match(specSkill, /confirm an update or pick another/);
+  });
+
+  it('writes plain markdown in the request language with the agreed sections', () => {
+    assert.match(specSkill, /plain Markdown, no frontmatter/);
+    assert.match(specSkill, /language of the user's request/);
+    for (const section of [
+      '## Context',
+      '## Goal',
+      '## Non-goals',
+      '## Requirements',
+      '## Acceptance Criteria',
+      '## Constraints',
+      '## Open Questions',
+    ]) {
+      assert.ok(specSkill.includes(section), `missing ${section}`);
+    }
+  });
+
+  it('uses Given/When/Then acceptance criteria', () => {
+    assert.match(specSkill, /Given <precondition>/);
+    assert.match(specSkill, /When <action>/);
+    assert.match(specSkill, /Then <observable result>/);
+  });
+
+  it('confirms the draft and destination before writing', () => {
+    assert.match(specSkill, /Show the complete draft/);
+    assert.match(specSkill, /exact destination path/);
+    assert.match(specSkill, /after explicit user confirmation/);
+  });
+
+  it('limits writes to docs/specs and never touches code or tasks', () => {
+    assert.match(specSkill, /only file this skill may create or update/);
+    assert.match(specSkill, /Do not touch code, other documentation/);
+    assert.match(specSkill, /\.swarmroom\/tasks\.json/);
+  });
+
+  it('hands off to sw-pipeline without running it', () => {
+    assert.match(specSkill, /`\/sw-pipeline`/);
+    assert.match(specSkill, /suggest the next step/);
+    assert.ok(!/run the sw-\\\* pipeline/i.test(specSkill));
+  });
+
+  it('survives rewriteSkill for every target', () => {
+    for (const target of targets) {
+      const rewritten = target.rewriteSkill(specSkill);
+      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
+      assert.ok(rewritten.includes('docs/specs/'), `${target.id}: lost docs/specs`);
+      assert.ok(rewritten.includes('sw-pipeline'), `${target.id}: lost handoff`);
+      if (target.id === 'cursor') {
+        assert.match(rewritten, /^argument-hint:/m);
+        assert.match(rewritten, /^disable-model-invocation:/m);
+      } else {
+        assert.ok(!/^argument-hint:/m.test(rewritten), `${target.id}: argument-hint survived`);
+        assert.ok(
+          !/^disable-model-invocation:/m.test(rewritten),
+          `${target.id}: disable-model-invocation survived`,
+        );
+      }
+    }
+  });
+});
+
+describe('sw-grilling skill', () => {
   it('caps each round at 3 and does not dump the frontier', () => {
     assert.match(grillingSkill, /at most \*\*3\*\*/);
     assert.match(grillingSkill, /never dump/i);
@@ -113,12 +213,12 @@ describe('grilling skill', () => {
   });
 });
 
-describe('transcribe-audio skill', () => {
+describe('sw-transcribe-audio skill', () => {
   it('has valid frontmatter', () => {
     const [before, frontmatter] = transcribeSkill.split('---');
     assert.equal(before, '');
     assert.ok(frontmatter);
-    assert.match(frontmatter, /name:\s*transcribe-audio/);
+    assert.match(frontmatter, /name:\s*sw-transcribe-audio/);
     assert.match(frontmatter, /description:\s*\S/);
   });
 

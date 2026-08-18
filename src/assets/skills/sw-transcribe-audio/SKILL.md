@@ -1,5 +1,5 @@
 ---
-name: transcribe-audio
+name: sw-transcribe-audio
 description: >-
   Transcribe a local audio file to text. Use when the user provides a path to
   an mp3, wav, m4a, ogg, or opus recording (including WhatsApp voice notes)

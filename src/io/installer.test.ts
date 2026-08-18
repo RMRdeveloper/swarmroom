@@ -114,19 +114,19 @@ describe('installer', () => {
     assert.ok(updated.files.every((f) => f.status === 'updated'));
   });
 
-  it('copies transcribe-audio companion script as-is', async () => {
-    const source = await readFile(join(assetsDir(), 'skills', 'transcribe-audio', 'transcribe.py'), 'utf8');
+  it('copies sw-transcribe-audio companion script as-is', async () => {
+    const source = await readFile(join(assetsDir(), 'skills', 'sw-transcribe-audio', 'transcribe.py'), 'utf8');
 
     const root = await tempDir();
     const report = await install({ target: cursor, root }, true);
-    const dest = join(root, cursor.skillsDir, 'transcribe-audio', 'transcribe.py');
+    const dest = join(root, cursor.skillsDir, 'sw-transcribe-audio', 'transcribe.py');
     assert.equal(await readFile(dest, 'utf8'), source);
     assert.ok(report.files.some((f) => f.dest === dest));
 
     const agentRoot = await tempDir();
     const skillRoot = await tempDir();
     const codexReport = await install({ target: codex, root: agentRoot, skillsRoot: skillRoot }, true);
-    const codexDest = join(skillRoot, codex.skillsDir, 'transcribe-audio', 'transcribe.py');
+    const codexDest = join(skillRoot, codex.skillsDir, 'sw-transcribe-audio', 'transcribe.py');
     assert.equal(await readFile(codexDest, 'utf8'), source);
     assert.ok(codexReport.files.some((f) => f.dest === codexDest));
   });

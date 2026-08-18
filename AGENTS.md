@@ -2,7 +2,7 @@
 
 This repo is the installer + source-of-truth for the portable `sw-*` coding
 agents (planner, implementer, critic, code-reviewer, verifier, fixer, researcher, web-researcher) and the
-`sw-pipeline`, `grilling`, and `transcribe-audio` skills, installed into Cursor, opencode, Claude Code, or Codex.
+`sw-pipeline`, `sw-spec`, `sw-grilling`, and `sw-transcribe-audio` skills, installed into Cursor, opencode, Claude Code, or Codex.
 
 ## Source of truth (critical)
 

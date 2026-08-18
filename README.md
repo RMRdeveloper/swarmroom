@@ -59,7 +59,7 @@ TOML, for Codex) into your editor's config directory and gets out of the way.
   `sw-code-reviewer` (style/rules) and `sw-verifier` (does it run). A Critical
   finding on the plan sends it back to `sw-planner`, not forward to
   implementation.
-- **`grilling`: a structured interview, not a question dump.** Stress-tests
+- **`sw-grilling`: a structured interview, not a question dump.** Stress-tests
   scope and assumptions in rounds capped at 3 questions each, skipped
   questions get priority next round instead of getting buried, and you can
   fast-track a round with `go with recommended`.
@@ -104,12 +104,12 @@ loads skills from `.agents/skills` (or `~/.agents/skills` when global).
 | Editor      | Agents                  | Skills                     |
 | ----------- | ------------------------ | --------------------------- |
 | Cursor      | `.cursor/agents/*.md`    | `.cursor/skills/<name>/`    |
-| opencode    | `.opencode/agent/*.md`   | `.opencode/skill/<name>/`   |
+| opencode    | `.opencode/agent/*.md`   | `.opencode/skills/<name>/`  |
 | Claude Code | `.claude/agents/*.md`    | `.claude/skills/<name>/`    |
 | Codex       | `.codex/agents/*.toml`   | `.agents/skills/<name>/`    |
 
 Each skill folder includes `SKILL.md`. Skills that ship a helper script get
-that file copied as-is next to it (today: `transcribe-audio` → `transcribe.py`).
+that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
 
 Project installs also copy `CODING_GUIDELINES.md` to the repo root. Global
 installs skip that file. Codex global skills go to `~/.agents/skills`.
@@ -123,7 +123,7 @@ sw-pipeline → (trivial? implementer → verifier)
 
 On **Critical** from the plan-stage critic, the pipeline replans — back to
 `sw-planner`, never forward to `sw-implementer`. High/Medium don't block. For
-non-trivial work, the planner runs `grilling` first when that skill is
+non-trivial work, the pipeline runs `sw-grilling` first when that skill is
 installed. After implementation, `sw-critic` and `sw-code-reviewer` run in
 parallel (both read-only); either reporting Critical routes to `sw-fixer`
 (max 2 passes), then `sw-verifier`.
@@ -133,8 +133,9 @@ parallel (both read-only); either reporting Critical routes to `sw-fixer`
 | Skill              | Role                                                                                                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sw-pipeline`        | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                             |
-| `grilling`           | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code. |
-| `transcribe-audio`   | Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
+| `sw-spec`            | Writes a lightweight spec under `docs/specs/<slug>.md` in the target project root, then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently. |
+| `sw-grilling`        | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code. |
+| `sw-transcribe-audio`| Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
 
 ## Agents
 
@@ -181,7 +182,7 @@ src/
 │   └── prompts.ts    # interactive selection (stdlib readline)
 └── assets/           # the markdown you install (source of truth)
     ├── artifacts/CODING_GUIDELINES.md
-    ├── skills/{sw-pipeline,grilling,transcribe-audio}/
+    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-transcribe-audio}/
     └── agents/sw-*.md
 ```
 
@@ -217,7 +218,7 @@ gitignored, installer-generated copy — never edit those directly.
 
 **Does this call any external API or LLM?** No. It's a file installer. The
 agents run inside whichever tool you install them into; swarmroom itself
-makes no network calls (the one exception is `transcribe-audio`'s one-time
+makes no network calls (the one exception is `sw-transcribe-audio`'s one-time
 model download, which runs entirely on your machine after that).
 
 **Why a separate critic instead of asking the reviewer to look for logic
