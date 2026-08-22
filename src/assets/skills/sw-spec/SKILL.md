@@ -95,7 +95,7 @@ the user confirms the draft; never hide them.
 ## Scope of writes
 
 The only file this skill may create or update is the spec under
-`docs/specs/`. Do not touch code, other documentation, `.swarmroom/tasks.json`,
+`docs/specs/`. Do not touch code, other documentation, `.swarmroom/tasks/`,
 or any implementation agent.
 
 ## Handoff

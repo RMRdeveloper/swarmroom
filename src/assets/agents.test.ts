@@ -16,7 +16,6 @@ const RESEARCH_AGENTS = ['sw-researcher', 'sw-web-researcher'] as const;
 const READ_FIRST_AGENTS = [
   'sw-planner',
   'sw-implementer',
-  'sw-critic',
   'sw-code-reviewer',
   'sw-verifier',
   'sw-fixer',
@@ -138,19 +137,19 @@ const READ_FIRST_END =
 const BASELINE_END = '- Comments only for important non-obvious intent — no narration, no noise, no stale TODOs.';
 
 const FINDINGS_END =
-  'Severity: Critical = must fix before merge; High = fix soon; Medium = address when possible. `rule` names the violated guideline.';
+  'Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline. `rule` names the violated guideline.';
 
 describe('agent prompt assets', () => {
   const byName = Object.fromEntries(agents.map((name) => [name, readAgent(name)])) as Record<string, string>;
 
-  it('keeps read-first identical across the six pipeline agents', () => {
+  it('keeps read-first identical across the five pipeline agents', () => {
     const blocks = READ_FIRST_AGENTS.map((n) =>
       blockThrough(byName[n]!, 'Mandatory read-first (never skip, docs change)', READ_FIRST_END),
     );
     assertIdenticalBlocks(blocks, 'read-first');
   });
 
-  it('keeps baseline identical across the six pipeline agents', () => {
+  it('keeps baseline identical across the five pipeline agents', () => {
     const blocks = READ_FIRST_AGENTS.map((n) =>
       blockThrough(byName[n]!, 'Baseline standards (apply when the repo defines nothing stricter)', BASELINE_END),
     );
@@ -192,7 +191,7 @@ describe('agent prompt assets', () => {
       byName['sw-fixer']!.indexOf(GRILLING_STANDALONE) + GRILLING_STANDALONE.length,
     );
     assert.equal(fromImpl, fromFixer);
-    for (const name of ['sw-code-reviewer', 'sw-verifier', 'sw-critic', ...RESEARCH_AGENTS] as const) {
+    for (const name of ['sw-code-reviewer', 'sw-verifier', ...RESEARCH_AGENTS] as const) {
       assert.ok(!byName[name]!.toLowerCase().includes('grilling'), `${name} must not mention grilling`);
     }
   });

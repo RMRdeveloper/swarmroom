@@ -98,14 +98,39 @@ describe('readTaskGraph / writeTaskGraph', () => {
   it('round-trips on disk', async () => {
     const root = await tempDir();
     const graph = createGraph([task({ id: 'T1', status: 'completed', result: 'ok' })]);
-    const dest = await writeTaskGraph(root, graph);
-    assert.equal(dest, taskGraphPath(root));
-    const loaded = await readTaskGraph(root);
+    const dest = await writeTaskGraph(root, graph, 'run-a.json');
+    assert.equal(dest, taskGraphPath(root, 'run-a.json'));
+    const loaded = await readTaskGraph(root, 'run-a.json');
     assert.deepEqual(loaded, graph);
+  });
+
+  it('round-trips with subdir', async () => {
+    const root = await tempDir();
+    const graph = createGraph([task({ id: 'T1', status: 'pending' })]);
+    const dest = await writeTaskGraph(root, graph, 'nested/run-b.json');
+    assert.equal(dest, taskGraphPath(root, 'nested/run-b.json'));
+    assert.deepEqual(await readTaskGraph(root, 'nested/run-b.json'), graph);
+    assert.equal(await readTaskGraph(root, 'nested/other.json'), null);
+  });
+
+  it('isolates two runIds', async () => {
+    const root = await tempDir();
+    await writeTaskGraph(root, createGraph([task({ id: 'T1', title: 'A' })]), 'a.json');
+    await writeTaskGraph(root, createGraph([task({ id: 'T1', title: 'B' })]), 'b.json');
+    const a = await readTaskGraph(root, 'a.json');
+    const b = await readTaskGraph(root, 'b.json');
+    assert.equal(a?.tasks[0]?.title, 'A');
+    assert.equal(b?.tasks[0]?.title, 'B');
   });
 
   it('returns null when the file is missing', async () => {
     const root = await tempDir();
-    assert.equal(await readTaskGraph(root), null);
+    assert.equal(await readTaskGraph(root, 'missing.json'), null);
+  });
+
+  it('rejects tasksFile with ..', async () => {
+    const root = await tempDir();
+    assert.throws(() => taskGraphPath(root, '../escape.json'), /must not contain `\.\.`/);
+    assert.throws(() => taskGraphPath(root, 'a/../b.json'), /must not contain `\.\.`/);
   });
 });

@@ -49,9 +49,9 @@ Review the given diff/PR against the baseline standards above and any stricter r
 ## Findings contract (one line per finding)
 
 ```
-FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>
+FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>
 ```
 
-Severity: Critical = must fix before merge; High = fix soon; Medium = address when possible. `rule` names the violated guideline.
+Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline. `rule` names the violated guideline.
 
 Do not edit code. Output only findings, or `No findings` if the change is clean.

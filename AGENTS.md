@@ -1,8 +1,8 @@
 # AGENTS.md
 
 This repo is the installer + source-of-truth for the portable `sw-*` coding
-agents (planner, implementer, critic, code-reviewer, verifier, fixer, researcher, web-researcher) and the
-`sw-pipeline`, `sw-spec`, `sw-grilling`, and `sw-transcribe-audio` skills, installed into Cursor, opencode, Claude Code, or Codex.
+agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-researcher) and the
+`sw-pipeline`, `sw-spec`, `sw-grilling`, `sw-critic`, and `sw-transcribe-audio` skills, installed into Cursor, opencode, Claude Code, or Codex.
 
 ## Source of truth (critical)
 
@@ -24,7 +24,7 @@ npm test             # node --test 'src/**/*.test.ts'
 npm run build        # bundle CLI to dist/cli.js (required for npm publish / npx)
 npm run setup        # node src/cli.ts (run the installer; alias)
 node src/cli.ts --cursor --opencode --codex --global --force   # non-interactive install
-node src/cli.ts tasks [--dir <path>] [--json]          # inspect .swarmroom/tasks.json
+node src/cli.ts tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
 ```
 
 Local development runs TypeScript directly under Node ≥ 23.6 (native type
@@ -48,8 +48,8 @@ published bin needs Node ≥ 20.
   `mode: subagent` for opencode/Claude, and to TOML (`name`, `description`,
   `developer_instructions`) for Codex. Keep Cursor-only lines in the assets.
 - `src/domain/tasks.ts` / `src/domain/scheduler.ts` — pure Task Graph + ready/parallel selection.
-- `src/io/task-store.ts` — read/write `.swarmroom/tasks.json` in a consumer project.
-- `src/cli.ts` — argv parsing (no framework, stdlib readline for prompts); install, or `tasks` status.
+- `src/io/task-store.ts` — read/write `.swarmroom/tasks/<runId>.json` in a consumer project (isolated per pipeline, `--tasks-file` required).
+- `src/cli.ts` — argv parsing (no framework, stdlib readline for prompts); install, or task graph status, validation, scheduling, mutation, and replanning commands.
 
 ## TypeScript quirks (strict)
 

@@ -84,6 +84,18 @@ describe('selectRunnable', () => {
     );
   });
 
+  it('keeps later disjoint writers when an earlier writer conflicts', () => {
+    const graph = createGraph([
+      task({ id: 'T1', agent: 'sw-implementer', files: ['a.ts'] }),
+      task({ id: 'T2', agent: 'sw-fixer', files: ['a.ts'] }),
+      task({ id: 'T3', agent: 'sw-implementer', files: ['b.ts'] }),
+    ]);
+    assert.deepEqual(
+      selectRunnable(graph).map((t) => t.id),
+      ['T1', 'T3'],
+    );
+  });
+
   it('runs a writer without files alone among writers', () => {
     const graph = createGraph([
       task({ id: 'T1', agent: 'sw-implementer' }),
@@ -126,6 +138,18 @@ describe('selectRunnable', () => {
     assert.deepEqual(
       selectRunnable(graph).map((t) => t.id),
       ['T1', 'T2'],
+    );
+  });
+
+  it('runs non-writers safely alongside a writer', () => {
+    const graph = createGraph([
+      task({ id: 'T1', agent: 'sw-implementer', files: ['a.ts'] }),
+      task({ id: 'T2', agent: 'sw-code-reviewer', files: ['a.ts'] }),
+      task({ id: 'T3', agent: 'sw-verifier' }),
+    ]);
+    assert.deepEqual(
+      selectRunnable(graph).map((t) => t.id),
+      ['T1', 'T2', 'T3'],
     );
   });
 });

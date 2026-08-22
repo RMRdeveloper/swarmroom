@@ -2,7 +2,7 @@
 
 # swarmroom
 
-**Portable coding agents — planner, critic, implementer, reviewer, verifier, fixer, researcher — for Cursor, opencode, Claude Code, and Codex.**
+**Portable coding agents — planner, implementer, reviewer, verifier, fixer, researcher — for Cursor, opencode, Claude Code, and Codex.**
 
 One source of truth. Four editors. A Red Team that actually red-teams. Zero lock-in.
 
@@ -28,16 +28,16 @@ verifier — and every team writes its own version, once per editor.
 Cursor and Claude Code, and the model tends to accept its own first plan
 without ever seriously trying to break it.
 
-**swarmroom** is that agent set, written once, installed everywhere — plus a
-dedicated adversary whose only job is to attack the plan before you build it.
+**swarmroom** is that agent set, written once, installed everywhere — with an
+optional Red Team skill you can invoke manually when you want adversarial scrutiny.
 
 ## What it is
 
-Seven coding agents plus the skills that orchestrate them:
+Six coding agents plus the skills that orchestrate them:
 
 ```
 sw-pipeline → (trivial? implementer → verifier)
-            → else planner → critic → implementer(s) → reviewer∥critic → fixer → verifier
+            → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
 
 Every agent carries the full standards baseline from `CODING_GUIDELINES.md`
@@ -52,13 +52,6 @@ TOML, for Codex) into your editor's config directory and gets out of the way.
 
 ## Why teams reach for it
 
-- **`sw-critic`: a Red Team that has to find something, not confirm what's
-  already there.** Runs on the plan *before* any code is written and again on
-  the diff, hunting for logical flaws, unconfirmed business assumptions,
-  architecture violations, and over-engineering — separate from
-  `sw-code-reviewer` (style/rules) and `sw-verifier` (does it run). A Critical
-  finding on the plan sends it back to `sw-planner`, not forward to
-  implementation.
 - **`sw-grilling`: a structured interview, not a question dump.** Stress-tests
   scope and assumptions in rounds capped at 3 questions each, skipped
   questions get priority next round instead of getting buried, and you can
@@ -67,9 +60,7 @@ TOML, for Codex) into your editor's config directory and gets out of the way.
   the installer rewrites frontmatter per editor (`readonly` → `mode: subagent`
   → TOML `developer_instructions`) so it stays valid everywhere without a
   second copy to maintain.
-- **Findings you can pipe.** `sw-code-reviewer`, `sw-critic`, and
-  `sw-verifier` emit one line per issue in a fixed format `sw-fixer` consumes
-  directly — no free-text review to re-parse.
+- **Findings you can pipe.** `sw-code-reviewer` and `sw-verifier` emit one line per issue in a fixed format `sw-fixer` consumes directly — no free-text review to re-parse. `sw-critic` (manual skill) uses the same format.
 - **Repo docs always win.** Every agent reads your `AGENTS.md` /
   `CODING_GUIDELINES.md` / `CONTEXT.md` fresh before acting, and says so
   explicitly when one is missing instead of guessing at conventions.
@@ -93,8 +84,7 @@ npx @rmrdeveloper/swarmroom --global --codex --force
 Or `npm i -g @rmrdeveloper/swarmroom`, then `swarmroom`. Re-run the same
 command to update — existing files are skipped unless you pass `--force`.
 
-`swarmroom --help` lists flags. `swarmroom tasks` prints `.swarmroom/tasks.json`
-status (`--json` for the raw graph); it does not run agents.
+`swarmroom --help` lists flags. `swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (`--json` for the raw graph); it does not run agents.
 
 Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex
 loads skills from `.agents/skills` (or `~/.agents/skills` when global).
@@ -118,15 +108,10 @@ installs skip that file. Codex global skills go to `~/.agents/skills`.
 
 ```
 sw-pipeline → (trivial? implementer → verifier)
-            → else planner → critic → implementer(s) → reviewer∥critic → fixer → verifier
+            → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
 
-On **Critical** from the plan-stage critic, the pipeline replans — back to
-`sw-planner`, never forward to `sw-implementer`. High/Medium don't block. For
-non-trivial work, the pipeline runs `sw-grilling` first when that skill is
-installed. After implementation, `sw-critic` and `sw-code-reviewer` run in
-parallel (both read-only); either reporting Critical routes to `sw-fixer`
-(max 2 passes), then `sw-verifier`.
+For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
 
 ## Skills
 
@@ -135,6 +120,7 @@ parallel (both read-only); either reporting Critical routes to `sw-fixer`
 | `sw-pipeline`        | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                             |
 | `sw-spec`            | Writes a lightweight spec under `docs/specs/<slug>.md` in the target project root, then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently. |
 | `sw-grilling`        | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code. |
+| `sw-critic`          | Adversarial Red Team — manually stress-test a plan or diff for logical failures, assumptions, architecture and YAGNI. Not part of the automatic pipeline.    |
 | `sw-transcribe-audio`| Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
 
 ## Agents
@@ -142,7 +128,6 @@ parallel (both read-only); either reporting Critical routes to `sw-fixer`
 | Agent                | Writes? | Role                                                                                                                                       |
 | ---------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `sw-planner`           | no      | Plan any non-trivial change before editing                                                                                                 |
-| `sw-critic`            | no      | Adversarial Red Team critique of plans and implementations — logical failures, unconfirmed assumptions, architecture violations, YAGNI — separate from style review (`sw-code-reviewer`) or verify-runs (`sw-verifier`) |
 | `sw-implementer`       | yes     | Writes code to the repo's standards, then runs checks                                                                                       |
 | `sw-code-reviewer`     | no      | Reviews diffs; one `FINDING` line per issue                                                                                                 |
 | `sw-verifier`          | no      | Confirms the work exists, is wired, and passes tests                                                                                        |
@@ -151,19 +136,17 @@ parallel (both read-only); either reporting Critical routes to `sw-fixer`
 | `sw-web-researcher`    | no      | Answers web/docs questions with cited URLs                                                                                                  |
 
 `sw-researcher` and `sw-web-researcher` are on-demand. They are not stages in
-`sw-pipeline`.
+`sw-pipeline`. `sw-critic` is now a manual skill (`/sw-critic`), not an agent.
 
 ## Findings contract
 
-`sw-code-reviewer`, `sw-critic`, and `sw-verifier` emit, and `sw-fixer`
-consumes, one line per finding:
+`sw-code-reviewer` and `sw-verifier` emit, and `sw-fixer` consumes, one line per finding ( `sw-critic` uses the same format when invoked manually):
 
 ```
-FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>
+FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>
 ```
 
-Severity: `Critical` = must fix before merge; `High` = fix soon; `Medium` =
-address when possible.
+Severity: `Critical` = must fix before merge; `High` = must fix before merge; `Medium` = must fix before merge; `Low` = informative — does not block pipeline.
 
 ## Repository layout
 
@@ -182,7 +165,7 @@ src/
 │   └── prompts.ts    # interactive selection (stdlib readline)
 └── assets/           # the markdown you install (source of truth)
     ├── artifacts/CODING_GUIDELINES.md
-    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-transcribe-audio}/
+    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
     └── agents/sw-*.md
 ```
 
@@ -221,11 +204,7 @@ agents run inside whichever tool you install them into; swarmroom itself
 makes no network calls (the one exception is `sw-transcribe-audio`'s one-time
 model download, which runs entirely on your machine after that).
 
-**Why a separate critic instead of asking the reviewer to look for logic
-bugs too?** Because a reviewer checking style rules and an adversary looking
-for reasons the whole approach is wrong are different postures. Folding both
-into one agent means the easier check (style) crowds out the harder one
-(logic), and both stay shallow.
+**Why is sw-critic a manual skill instead of a pipeline stage?** Because an adversary that always blocks the plan can be counter-productive to swarmroom's essence. Running it manually keeps adversarial scrutiny available without forcing a replan on every Critical. The reviewer (`sw-code-reviewer`, style/rules) and verifier (`sw-verifier`, wiring/tests) remain automatic; the Red Team runs only when you ask for it.
 
 **Does it respect my repo's docs?** Every agent reads `AGENTS.md` /
 `CODING_GUIDELINES.md` / `CONTEXT.md` at the repo root before acting and

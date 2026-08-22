@@ -1,12 +1,12 @@
 ---
 name: sw-pipeline
-description: Run the full sw-* pipeline — planner, critic, implementer, code-reviewer, verifier, fixer.
+description: Run the full sw-* pipeline — planner, implementer, code-reviewer, verifier, fixer.
 argument-hint: Describe the feature/task to build or the diff to review.
 disable-model-invocation: true
 ---
 
 Run the sw-\* pipeline end to end via an internal Task Graph. Delegate each
-stage to its subagent (`sw-planner`, `sw-critic`, `sw-implementer`,
+stage to its subagent (`sw-planner`, `sw-implementer`,
 `sw-code-reviewer`, `sw-verifier`, `sw-fixer`); do not substitute your own
 judgement.
 
@@ -28,7 +28,7 @@ never the pipeline and never any subagent. A recommendation is not a decision
 until the user accepts it.
 
 While any round is pending, **pause**: show the questions, wait for the user,
-and do not start `sw-planner`, `sw-critic`, or any implementation task. When
+and do not start `sw-planner` or any implementation task. When
 `sw-grilling` reaches a settled, user-confirmed understanding, pass that
 settled understanding to `sw-planner` as input. The planner never runs
 `sw-grilling` itself and never answers for the user.
@@ -39,17 +39,36 @@ settled understanding to `sw-planner` as input. The planner never runs
   `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no `sw-grilling`.
 - **Otherwise**: run the `sw-grilling` gate first (see above). After the user
   confirms the settled understanding, `sw-planner` runs (read-first, then
-  plan). Planner emits a prose plan plus a compact JSON task graph. After the
-  plan is emitted, run `sw-critic` on the plan **before** any implementation
-  starts. If Critical findings → return to `sw-planner` (not
-  `sw-implementer`). High/Medium do not block (only Critical gates).
+  plan). Planner emits a prose plan plus a compact JSON task graph. No
+  automatic `sw-critic` gate. You may suggest `/sw-critic` as an optional
+  manual check at this point, but it never blocks the graph.
 
-## Task graph
+## Task graph — isolated per run (breaking change)
 
-Persist `.swarmroom/tasks.json` yourself (ids `T1..Tn`). Do not require the
-`swarmroom` binary. Tasks hold execution data only: id, title, description,
-status, dependsOn, agent, files, acceptance, result, error, attempts. No specs, no
-transcripts, no copied guidelines.
+Every pipeline run owns its own graph file. At the start pick a
+`runId` (slug of the feature/spec + `YYYYMMDD-HHmmss` + 4-char hash, e.g.
+`add-auth-20260821-1420-a3f9`; allow the user to override via `runId:` in the
+initial request). Then define `tasksFile = <runId>.json` (stored as
+`.swarmroom/tasks/<runId>.json`).
+
+If the `swarmroom` binary is available, use it as the task-graph interface
+with `--tasks-file` on **every** invocation:
+
+1. `swarmroom tasks --tasks-file <tasksFile> validate` before execution and after graph changes.
+2. `swarmroom tasks --tasks-file <tasksFile> ready` to select the safe ready set.
+3. `swarmroom tasks --tasks-file <tasksFile> set <id> <status> [--result|--error]` for every status/result transition.
+4. `swarmroom tasks --tasks-file <tasksFile> replan --file <path>` for accepted replans.
+
+The orchestrator remains the sole authority that validates and applies graph
+changes; agents may only propose `{ addTasks, addDependencies }`. When the
+binary is unavailable, persist `.swarmroom/tasks/<tasksFile>` yourself (ids
+`T1..Tn`) and perform the same validation, scheduling, transitions, and
+replanning manually. Tasks hold execution data only: id, title, description,
+status, dependsOn, agent, files, acceptance, result, error, attempts. No
+specs, no transcripts, no copied guidelines.
+
+N runs with distinct `runId` values never collide — do not reuse the same
+`tasksFile` for parallel pipelines.
 
 A task is not `completed` because the agent finished talking. Completion
 requires the implementation, the agent's own checks, and any quality phase
@@ -67,14 +86,18 @@ Run the safe ready set:
 
 ## Quality phase
 
-After implementation tasks: run `sw-critic` **in parallel** with
-`sw-code-reviewer` (both read-only). If **either** reports Critical →
-`sw-fixer` (max 2 passes) → then `sw-verifier`. Findings stay one line:
+After implementation tasks: run `sw-code-reviewer` **in parallel** with
+`sw-verifier` (both read-only). Findings stay one line:
 
-`FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>`
+`FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>`
 
-If a stage reports Critical findings, do not advance: loop implementer→fixer
-until clean.
+Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline.
+
+If either reports Critical, High, or Medium → `sw-fixer` (max 2 passes per finding, severity-first) → then re-run `sw-code-reviewer` (+ `sw-verifier` if it was in the loop). Loop `reviewer/verifier → fixer → reviewer/verifier` until `No findings` or only `Low` remain.
+
+If a stage reports only Low, do not loop — advance to completion.
+
+`sw-critic` is never auto-scheduled; invoke `/sw-critic` manually when you want adversarial scrutiny. Its findings are advisory unless you explicitly route them to `sw-fixer`.
 
 ## Replanning
 

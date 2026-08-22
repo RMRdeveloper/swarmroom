@@ -26,7 +26,16 @@ function printError(message: string): void {
   console.error(style.error(`error: ${message}`));
 }
 
+function isJsonTaskInvocation(argv: readonly string[]): boolean {
+  return argv[0] === 'tasks' && argv.includes('--json');
+}
+
+function printJsonTaskError(message: string): void {
+  process.stdout.write(`${JSON.stringify({ error: message }, null, 2)}\n`);
+}
+
 async function main(): Promise<void> {
+  const jsonTaskInvocation = isJsonTaskInvocation(process.argv.slice(2));
   try {
     const parsed = parseArgs(process.argv.slice(2));
 
@@ -39,12 +48,13 @@ async function main(): Promise<void> {
       return;
     }
     if (parsed.kind === 'error') {
-      printError(parsed.message);
+      if (jsonTaskInvocation) printJsonTaskError(parsed.message);
+      else printError(parsed.message);
       process.exitCode = 1;
       return;
     }
     if (parsed.kind === 'tasks') {
-      await runTasks({ dir: parsed.dir, json: parsed.json });
+      await runTasks({ dir: parsed.dir, json: parsed.json, tasksFile: parsed.tasksFile, command: parsed.command });
       return;
     }
 
@@ -94,7 +104,8 @@ async function main(): Promise<void> {
     printClosing(chosen);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    printError(message);
+    if (jsonTaskInvocation) printJsonTaskError(message);
+    else printError(message);
     process.exitCode = 1;
   } finally {
     close();

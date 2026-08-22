@@ -4,6 +4,7 @@ import { cwd } from 'node:process';
 
 import type { Scope, Target } from '../domain/targets.ts';
 import { targets } from '../domain/targets.ts';
+import { isTaskStatus, type TaskStatus } from '../domain/tasks.ts';
 import { packageRoot } from '../io/package-root.ts';
 
 const pkgPath = join(packageRoot(), 'package.json');
@@ -32,7 +33,14 @@ export type ParseResult =
   | { readonly kind: 'help' }
   | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string }
-  | { readonly kind: 'tasks'; readonly dir: string; readonly json: boolean };
+  | { readonly kind: 'tasks'; readonly command: TasksCommand; readonly dir: string; readonly json: boolean; readonly tasksFile: string };
+
+export type TasksCommand =
+  | { readonly kind: 'status' }
+  | { readonly kind: 'validate' }
+  | { readonly kind: 'ready' }
+  | { readonly kind: 'set'; readonly id: string; readonly status: TaskStatus; readonly result?: string; readonly error?: string }
+  | { readonly kind: 'replan'; readonly file: string };
 
 const HELP_HINT = 'Run with --help for usage.';
 
@@ -50,8 +58,9 @@ export function formatHelp(): string {
     ['--force', 'overwrite existing files without asking'],
     ['-v, --verbose', 'list each installed file'],
     ['-q, --quiet', 'suppress per-target summaries (opening/closing still print)'],
-    ['tasks', 'show task graph status for this project'],
-    ['--json', 'with tasks: dump the graph as JSON'],
+    ['tasks [command]', 'inspect or mutate the task graph'],
+    ['--json', 'with tasks: emit one JSON document'],
+    ['--tasks-file <path>', 'task graph file under .swarmroom/tasks/ (required for tasks)'],
     ['-h, --help', 'show this help'],
     ['-V, --version', 'print version'],
   ];
@@ -62,7 +71,7 @@ export function formatHelp(): string {
 
 Usage:
   swarmroom [options]
-  swarmroom tasks [--dir <path>] [--json]
+  swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
 
 Also:
   node src/cli.ts [options]
@@ -79,6 +88,15 @@ With no editor flags in a TTY, prompts interactively. Re-run to update installed
 function parseTasksArgs(argv: readonly string[]): ParseResult {
   let dir = cwd();
   let json = false;
+  let tasksFile: string | undefined;
+  let tasksFileSeen = false;
+  let command: TasksCommand = { kind: 'status' };
+  let dirSeen = false;
+  let jsonSeen = false;
+  let result: string | undefined;
+  let error: string | undefined;
+  let file: string | undefined;
+  const positionals: string[] = [];
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -88,11 +106,29 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
     if (a === '--version' || a === '-V') return { kind: 'version' };
 
     if (a === '--json') {
+      if (jsonSeen) return { kind: 'error', message: 'ambiguous repeated flag: --json\n' + HELP_HINT };
+      jsonSeen = true;
       json = true;
       continue;
     }
 
+    if (a === '--tasks-file') {
+      if (tasksFileSeen) return { kind: 'error', message: 'ambiguous repeated flag: --tasks-file\n' + HELP_HINT };
+      tasksFileSeen = true;
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { kind: 'error', message: `--tasks-file requires a path\n${HELP_HINT}` };
+      }
+      if (next.length === 0) return { kind: 'error', message: `--tasks-file requires a non-empty path\n${HELP_HINT}` };
+      if (next.includes('..')) return { kind: 'error', message: `--tasks-file must not contain \`..\`\n${HELP_HINT}` };
+      tasksFile = next;
+      i += 1;
+      continue;
+    }
+
     if (a === '--dir') {
+      if (dirSeen) return { kind: 'error', message: 'ambiguous repeated flag: --dir\n' + HELP_HINT };
+      dirSeen = true;
       const next = argv[i + 1];
       if (next === undefined || next.startsWith('-')) {
         return { kind: 'error', message: `--dir requires a path\n${HELP_HINT}` };
@@ -102,10 +138,64 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
       continue;
     }
 
-    return { kind: 'error', message: `unknown option: ${a}\n${HELP_HINT}` };
+    if (a === '--result' || a === '--error' || a === '--file') {
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { kind: 'error', message: `${a} requires a value\n${HELP_HINT}` };
+      }
+      if (a === '--result') {
+        if (result !== undefined) return { kind: 'error', message: 'ambiguous repeated flag: --result\n' + HELP_HINT };
+        result = next;
+      } else if (a === '--error') {
+        if (error !== undefined) return { kind: 'error', message: 'ambiguous repeated flag: --error\n' + HELP_HINT };
+        error = next;
+      } else {
+        if (file !== undefined) return { kind: 'error', message: 'ambiguous repeated flag: --file\n' + HELP_HINT };
+        file = next;
+      }
+      i += 1;
+      continue;
+    }
+
+    if (a.startsWith('--')) return { kind: 'error', message: `unknown option: ${a}\n${HELP_HINT}` };
+    positionals.push(a);
   }
 
-  return { kind: 'tasks', dir, json };
+  const [name, id, status, ...extra] = positionals;
+  if (tasksFile === undefined) {
+    return { kind: 'error', message: `tasks requires --tasks-file <path>\n${HELP_HINT}` };
+  }
+  if (name === undefined) {
+    if (result !== undefined || error !== undefined || file !== undefined) {
+      return { kind: 'error', message: 'task flags require a subcommand\n' + HELP_HINT };
+    }
+    return { kind: 'tasks', command, dir, json, tasksFile };
+  }
+  if (name === 'validate' || name === 'ready') {
+    if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined || file !== undefined) return { kind: 'error', message: `tasks ${name} takes no arguments\n${HELP_HINT}` };
+    return { kind: 'tasks', command: { kind: name }, dir, json, tasksFile };
+  }
+  if (name === 'status') {
+    if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined || file !== undefined) return { kind: 'error', message: 'tasks status takes no arguments\n' + HELP_HINT };
+    return { kind: 'tasks', command: { kind: 'status' }, dir, json, tasksFile };
+  }
+  if (name === 'set') {
+    if (id === undefined || status === undefined || extra.length > 0) {
+      return { kind: 'error', message: 'tasks set requires <id> <status>\n' + HELP_HINT };
+    }
+    if (!isTaskStatus(status)) return { kind: 'error', message: `invalid task status: ${status}\n${HELP_HINT}` };
+    if (file !== undefined) return { kind: 'error', message: '--file is only valid with tasks replan\n' + HELP_HINT };
+    if (result !== undefined && error !== undefined) return { kind: 'error', message: '--result and --error cannot be used together\n' + HELP_HINT };
+    if (result !== undefined && status !== 'completed') return { kind: 'error', message: '--result requires status completed\n' + HELP_HINT };
+    if (error !== undefined && status !== 'failed') return { kind: 'error', message: '--error requires status failed\n' + HELP_HINT };
+    return { kind: 'tasks', command: { kind: 'set', id, status, ...(result !== undefined ? { result } : {}), ...(error !== undefined ? { error } : {}) }, dir, json, tasksFile };
+  }
+  if (name === 'replan') {
+    if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined) return { kind: 'error', message: 'tasks replan accepts only --file <path>\n' + HELP_HINT };
+    if (file === undefined) return { kind: 'error', message: 'tasks replan requires --file <path>\n' + HELP_HINT };
+    return { kind: 'tasks', command: { kind: 'replan', file }, dir, json, tasksFile };
+  }
+  return { kind: 'error', message: `unknown tasks command: ${name}\n${HELP_HINT}` };
 }
 
 /** Parse argv (without node/script). Validates unknown flags and --dir value. */

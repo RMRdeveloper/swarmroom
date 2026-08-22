@@ -16,7 +16,7 @@ const transcribeSkill = readFileSync(join(transcribeDir, 'SKILL.md'), 'utf8');
 const transcribePy = readFileSync(join(transcribeDir, 'transcribe.py'), 'utf8');
 
 const FINDING_LINE =
-  '`FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>`';
+  '`FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>`';
 
 const PRECEDENCE =
   'Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.';
@@ -31,11 +31,10 @@ function markdownSection(markdown: string, heading: string): string {
 }
 
 describe('sw-pipeline skill', () => {
-  it('delegates to the six pipeline agents', () => {
+  it('delegates to the five pipeline agents', () => {
     for (const name of [
       'sw-planner',
       'sw-implementer',
-      'sw-critic',
       'sw-code-reviewer',
       'sw-verifier',
       'sw-fixer',
@@ -162,7 +161,7 @@ describe('sw-spec skill', () => {
   it('limits writes to docs/specs and never touches code or tasks', () => {
     assert.match(specSkill, /only file this skill may create or update/);
     assert.match(specSkill, /Do not touch code, other documentation/);
-    assert.match(specSkill, /\.swarmroom\/tasks\.json/);
+    assert.match(specSkill, /\.swarmroom\/tasks\//);
   });
 
   it('hands off to sw-pipeline without running it', () => {
@@ -210,6 +209,45 @@ describe('sw-grilling skill', () => {
   it('distinguishes frontier from batch and keeps asked set independent', () => {
     assert.match(grillingSkill, /batch.*frontier|frontier.*batch/is);
     assert.match(grillingSkill, /independent/i);
+  });
+});
+
+describe('sw-critic skill', () => {
+  it('has valid frontmatter', () => {
+    const criticSkill = readFileSync(join(here, 'skills', 'sw-critic', 'SKILL.md'), 'utf8');
+    const [before, frontmatter] = criticSkill.split('---');
+    assert.equal(before, '');
+    assert.ok(frontmatter);
+    assert.match(frontmatter, /name:\s*sw-critic/);
+    assert.match(frontmatter, /description:\s*\S/);
+    assert.match(frontmatter, /argument-hint:/);
+    assert.match(frontmatter, /disable-model-invocation:/);
+  });
+
+  it('keeps the FINDING contract with Low', () => {
+    const criticSkill = readFileSync(join(here, 'skills', 'sw-critic', 'SKILL.md'), 'utf8');
+    assert.ok(criticSkill.includes('FINDING <N> | <Critical|High|Medium|Low>'));
+    assert.ok(criticSkill.includes('Low = informative'));
+  });
+
+  it('survives rewriteSkill for every target', () => {
+    const criticSkill = readFileSync(join(here, 'skills', 'sw-critic', 'SKILL.md'), 'utf8');
+    for (const target of targets) {
+      const rewritten = target.rewriteSkill(criticSkill);
+      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
+      assert.ok(rewritten.includes('FINDING <N> | <Critical|High|Medium|Low>'), `${target.id}: lost FINDING line`);
+      assert.ok(rewritten.includes('sw-critic') || rewritten.includes('Red Team'), `${target.id}: lost critic identity`);
+      if (target.id === 'cursor') {
+        assert.match(rewritten, /^argument-hint:/m);
+        assert.match(rewritten, /^disable-model-invocation:/m);
+      } else {
+        assert.ok(!/^argument-hint:/m.test(rewritten), `${target.id}: argument-hint survived`);
+        assert.ok(
+          !/^disable-model-invocation:/m.test(rewritten),
+          `${target.id}: disable-model-invocation survived`,
+        );
+      }
+    }
   });
 });
 

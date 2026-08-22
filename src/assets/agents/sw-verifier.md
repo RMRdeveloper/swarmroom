@@ -53,9 +53,9 @@ One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo s
 ## Findings contract (one line per finding)
 
 ```
-FINDING <N> | <Critical|High|Medium> | <file:line> | <rule> | <description>
+FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>
 ```
 
-Severity: Critical = must fix before merge; High = fix soon; Medium = address when possible. `rule` names the violated guideline.
+Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline. `rule` names the violated guideline.
 
 Then summarize: what was verified and passed, what was claimed but incomplete or broken, and specific issues that need addressing.

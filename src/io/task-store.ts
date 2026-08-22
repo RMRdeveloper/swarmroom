@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import {
   createGraph,
@@ -10,7 +10,7 @@ import {
 } from '../domain/tasks.ts';
 
 export const TASKS_DIR = '.swarmroom';
-export const TASKS_FILE = 'tasks.json';
+export const TASKS_SUBDIR = 'tasks';
 
 const ROOT_KEYS = new Set(['tasks']);
 const REQUIRED_TASK_KEYS = ['id', 'title', 'description', 'status', 'dependsOn'] as const;
@@ -30,8 +30,17 @@ function isAbsent(err: unknown): boolean {
   return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
-export function taskGraphPath(projectRoot: string): string {
-  return join(projectRoot, TASKS_DIR, TASKS_FILE);
+export function taskGraphPath(projectRoot: string, tasksFile: string): string {
+  if (tasksFile.length === 0) throw new Error('tasksFile must be a non-empty string');
+  if (isAbsolute(tasksFile)) return tasksFile;
+  if (tasksFile.includes('\0')) throw new Error('tasksFile must not contain null bytes');
+  // Prevent escaping the project .swarmroom/tasks tree via `..`
+  const normalized = tasksFile.replace(/\\/g, '/');
+  const parts = normalized.split('/');
+  for (const p of parts) {
+    if (p === '..') throw new Error('tasksFile must not contain `..`');
+  }
+  return join(projectRoot, TASKS_DIR, TASKS_SUBDIR, tasksFile);
 }
 
 function assertString(value: unknown, label: string): string {
@@ -137,9 +146,9 @@ export function serializeTaskGraph(graph: TaskGraph): string {
   return `${JSON.stringify(graph, null, 2)}\n`;
 }
 
-export async function readTaskGraph(projectRoot: string): Promise<TaskGraph | null> {
+export async function readTaskGraph(projectRoot: string, tasksFile: string): Promise<TaskGraph | null> {
   try {
-    const raw = await readFile(taskGraphPath(projectRoot), 'utf8');
+    const raw = await readFile(taskGraphPath(projectRoot, tasksFile), 'utf8');
     return parseTaskGraph(raw);
   } catch (err) {
     if (isAbsent(err)) return null;
@@ -147,9 +156,13 @@ export async function readTaskGraph(projectRoot: string): Promise<TaskGraph | nu
   }
 }
 
-export async function writeTaskGraph(projectRoot: string, graph: TaskGraph): Promise<string> {
-  const dest = taskGraphPath(projectRoot);
-  await mkdir(join(projectRoot, TASKS_DIR), { recursive: true });
+export async function writeTaskGraph(
+  projectRoot: string,
+  graph: TaskGraph,
+  tasksFile: string,
+): Promise<string> {
+  const dest = taskGraphPath(projectRoot, tasksFile);
+  await mkdir(dirname(dest), { recursive: true });
   await writeFile(dest, serializeTaskGraph(graph), 'utf8');
   return dest;
 }
