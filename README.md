@@ -2,9 +2,9 @@
 
 # swarmroom
 
-**Portable coding agents — planner, implementer, reviewer, verifier, fixer, researcher — for Cursor, opencode, Claude Code, and Codex.**
+**Portable coding agents — planner, implementer, reviewer, verifier, fixer, researcher, web-researcher — for Cursor, opencode, Claude Code, and Codex.**
 
-One source of truth. Four editors. A Red Team that actually red-teams. Zero lock-in.
+One source of truth. Four editors. Isolated task graphs for parallel pipelines. Zero lock-in.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/RMRdeveloper/swarmroom/ci.yml?branch=main)](https://github.com/RMRdeveloper/swarmroom/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40rmrdeveloper%2Fswarmroom.svg)](https://www.npmjs.com/package/@rmrdeveloper/swarmroom)
@@ -33,7 +33,7 @@ optional Red Team skill you can invoke manually when you want adversarial scruti
 
 ## What it is
 
-Six coding agents plus the skills that orchestrate them:
+Seven coding agents plus the skills that orchestrate them:
 
 ```
 sw-pipeline → (trivial? implementer → verifier)
@@ -52,6 +52,7 @@ TOML, for Codex) into your editor's config directory and gets out of the way.
 
 ## Why teams reach for it
 
+- **Parallel pipelines, no clobbering.** Each run gets its own `.swarmroom/tasks/<runId>.json` via required `--tasks-file`; run N pipelines concurrently without overwriting.
 - **`sw-grilling`: a structured interview, not a question dump.** Stress-tests
   scope and assumptions in rounds capped at 3 questions each, skipped
   questions get priority next round instead of getting buried, and you can
@@ -110,6 +111,8 @@ installs skip that file. Codex global skills go to `~/.agents/skills`.
 sw-pipeline → (trivial? implementer → verifier)
             → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
+
+Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.json` via `swarmroom tasks --tasks-file <runId>.json`. Parallel runs with distinct `runId` never collide.
 
 For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
 
