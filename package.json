@@ -8,12 +8,15 @@
   },
   "files": [
     "dist",
-    "src/assets"
+    "src/assets",
+    "skills"
   ],
   "scripts": {
     "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && node scripts/sync-skills.mjs",
     "setup": "node src/cli.ts",
+    "sync:skills": "node scripts/sync-skills.mjs",
+    "sync:skills:check": "node scripts/sync-skills.mjs --check",
     "types": "tsc --noEmit",
     "test": "node --test 'src/**/*.test.ts'"
   },

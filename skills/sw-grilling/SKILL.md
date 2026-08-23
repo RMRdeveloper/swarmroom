@@ -2,8 +2,8 @@
 name: sw-grilling
 description: >-
   Relentlessly stress-test a plan, decision, or feature until shared understanding.
-  Use for non-trivial work, or when the user asks to grill / /sw-grilling.
-argument-hint: What plan, decision, or feature to grill.
+    Use for non-trivial work, or when the user asks to grill / /sw-grilling.
+license: MIT
 ---
 
 Interview the user until you share one understanding. Map the work as a

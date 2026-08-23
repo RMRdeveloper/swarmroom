@@ -85,7 +85,18 @@ npx @rmrdeveloper/swarmroom --global --codex --force
 Or `npm i -g @rmrdeveloper/swarmroom`, then `swarmroom`. Re-run the same
 command to update — existing files are skipped unless you pass `--force`.
 
-`swarmroom --help` lists flags. `swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (`--json` for the raw graph); it does not run agents.
+**Via `skills.sh` (alternative):**
+
+```bash
+npx skills add RMRdeveloper/swarmroom
+# or pick a single skill
+npx skills add RMRdeveloper/swarmroom --skill sw-pipeline
+npx skills add RMRdeveloper/swarmroom --skill sw-grilling
+```
+
+`skills.sh` installs the same `skills/` directory (spec-compliant `SKILL.md`). The CLI `npx @rmrdeveloper/swarmroom` and `npx skills add` are two install channels for the same content — use whichever fits your setup.
+
+`swarmroom --help` (or `npx --yes @rmrdeveloper/swarmroom --help`) lists flags. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (`--json` for the raw graph); it does not run agents. When `swarmroom` is on `PATH` (`npm i -g` or `npm i @rmrdeveloper/swarmroom`), bare `swarmroom tasks --tasks-file <path>` is equivalent; `npx --yes @rmrdeveloper/swarmroom` is required in clean `npx`-only checkouts where the binary is ephemeral.
 
 Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex
 loads skills from `.agents/skills` (or `~/.agents/skills` when global).
@@ -112,7 +123,7 @@ sw-pipeline → (trivial? implementer → verifier)
             → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
 
-Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.json` via `swarmroom tasks --tasks-file <runId>.json`. Parallel runs with distinct `runId` never collide.
+Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.json` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.json` (or `swarmroom tasks --tasks-file <runId>.json` when the binary is on `PATH`). Parallel runs with distinct `runId` never collide.
 
 For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
 
@@ -166,10 +177,14 @@ src/
 │   ├── report.ts     # install summary output
 │   ├── style.ts      # TTY-aware colors (picocolors)
 │   └── prompts.ts    # interactive selection (stdlib readline)
-└── assets/           # the markdown you install (source of truth)
-    ├── artifacts/CODING_GUIDELINES.md
-    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
-    └── agents/sw-*.md
+├── assets/           # the markdown you install (source of truth)
+│   ├── artifacts/CODING_GUIDELINES.md
+│   ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
+│   └── agents/sw-*.md
+skills/               # spec-compliant mirror for skills.sh (generated from src/assets/skills via scripts/sync-skills.mjs)
+├── sw-pipeline/SKILL.md
+├── sw-grilling/SKILL.md
+└── sw-transcribe-audio/scripts/transcribe.py
 ```
 
 ## Development
@@ -180,6 +195,7 @@ npm run types    # tsc --noEmit type check
 npm test         # node:test suite
 npm run setup    # run the CLI (alias for `node src/cli.ts`)
 npm run build    # bundle CLI to dist/cli.js (required for npm publish / npx)
+npm run sync:skills        # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
 ```
 
 TypeScript runs directly during development (Node's native type stripping,
@@ -196,9 +212,7 @@ Node ≥ 20.
 - **New skill:** add `src/assets/skills/<name>/SKILL.md` and append the name
   to `skills` in `src/domain/pipeline.ts`.
 
-The only tracked source of agent/skill content is `src/assets/`. Everything
-under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a
-gitignored, installer-generated copy — never edit those directly.
+The only tracked source of agent/skill content is `src/assets/`. `skills/` is a generated, spec-compliant mirror for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`) — do not edit it by hand, run `npm run sync:skills` instead. Everything under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a gitignored, installer-generated copy — never edit those directly.
 
 ## FAQ
 

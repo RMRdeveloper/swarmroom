@@ -21,6 +21,18 @@ jobs:
       - run: npm run types
       - run: npm test
 
+  skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run sync:skills:check
+      - run: npx --yes skills add ./ --list
+
   dist:
     runs-on: ubuntu-latest
     steps:

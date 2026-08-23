@@ -1,8 +1,7 @@
 ---
 name: sw-pipeline
-description: Run the full sw-* pipeline — planner, implementer, code-reviewer, verifier, fixer.
-argument-hint: Describe the feature/task to build or the diff to review.
-disable-model-invocation: true
+description: Run the full sw-* pipeline via isolated Task Graph (grilling → planner → implementer → reviewer/verifier → fixer). Use when starting a non-trivial feature, plan or multi-agent work — delegates to sw-* subagents.
+license: MIT
 ---
 
 Run the sw-\* pipeline end to end via an internal Task Graph. Delegate each

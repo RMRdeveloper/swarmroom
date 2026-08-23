@@ -72,10 +72,13 @@ export function formatHelp(): string {
 Usage:
   swarmroom [options]
   swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
+  npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
 
 Also:
   node src/cli.ts [options]
   npm run setup
+
+Note: in clean checkouts without a global/local install, use npx --yes @rmrdeveloper/swarmroom (bare swarmroom is ephemeral via npx; npx swarmroom without scope resolves to a different package).
 
 Options:
 ${options}

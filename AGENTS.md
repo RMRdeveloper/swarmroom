@@ -10,6 +10,7 @@ agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-re
   - `src/assets/agents/*.md`
   - `src/assets/skills/<name>/` (`SKILL.md` plus optional companion files the installer copies as-is)
   - `src/assets/artifacts/CODING_GUIDELINES.md`
+- `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`). Do NOT edit it by hand; run `npm run sync:skills` (and `npm run sync:skills:check` in CI) — it is derived from `src/assets/skills/`.
 - `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, `.agents/`, and the repo-root
   `CODING_GUIDELINES.md` are **gitignored installed copies** produced by the CLI.
   Do NOT edit them; a re-run of the installer overwrites them. Editing
@@ -22,6 +23,7 @@ npm install
 npm run types        # tsc --noEmit (type check)
 npm test             # node --test 'src/**/*.test.ts'
 npm run build        # bundle CLI to dist/cli.js (required for npm publish / npx)
+npm run sync:skills  # regenerate skills/ mirror for skills.sh
 npm run setup        # node src/cli.ts (run the installer; alias)
 node src/cli.ts --cursor --opencode --codex --global --force   # non-interactive install
 node src/cli.ts tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
