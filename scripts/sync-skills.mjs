@@ -7,6 +7,10 @@ const SRC_ROOT = 'src/assets/skills';
 const DEST_ROOT = 'skills';
 const CHECK_FLAG = '--check';
 
+// Only standalone skills (no subagent delegation) are published to skills.sh.
+// sw-pipeline is excluded — it requires 7 agents via npm installer.
+const SKILLS_SH_ALLOWLIST = new Set(['sw-grilling', 'sw-spec', 'sw-critic', 'sw-transcribe-audio']);
+
 // Spec-allowed frontmatter keys
 const ALLOWED_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
 
@@ -209,16 +213,28 @@ async function syncOne(skillName, check) {
 async function main() {
   const check = process.argv.includes(CHECK_FLAG);
   const skills = await readdir(SRC_ROOT, { withFileTypes: true });
-  const names = skills.filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  const allNames = skills.filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  const names = allNames.filter((n) => SKILLS_SH_ALLOWLIST.has(n));
 
   if (!check) {
-    // clean old skills that no longer exist in src
+    // clean old skills that no longer exist in src or allowlist
     if (existsSync(DEST_ROOT)) {
       const existing = await readdir(DEST_ROOT, { withFileTypes: true });
       for (const e of existing) {
         if (!e.isDirectory()) continue;
         if (!names.includes(e.name)) {
           await rm(join(DEST_ROOT, e.name), { recursive: true, force: true });
+        }
+      }
+    }
+  } else {
+    // in check mode also verify that excluded skills are not present in dest
+    if (existsSync(DEST_ROOT)) {
+      const existing = await readdir(DEST_ROOT, { withFileTypes: true });
+      for (const e of existing) {
+        if (!e.isDirectory()) continue;
+        if (!SKILLS_SH_ALLOWLIST.has(e.name)) {
+          throw new Error(`check failed: ${join(DEST_ROOT, e.name)} should not be published to skills.sh (only standalone skills)`);
         }
       }
     }
@@ -230,7 +246,7 @@ async function main() {
   if (check) {
     console.log('skills sync check: ok');
   } else {
-    console.log(`synced ${names.length} skills to ${DEST_ROOT}/`);
+    console.log(`synced ${names.length} skills to ${DEST_ROOT}/ (standalone only, sw-pipeline excluded)`);
   }
 }
 

@@ -85,16 +85,18 @@ npx @rmrdeveloper/swarmroom --global --codex --force
 Or `npm i -g @rmrdeveloper/swarmroom`, then `swarmroom`. Re-run the same
 command to update — existing files are skipped unless you pass `--force`.
 
-**Via `skills.sh` (alternative):**
+**Via `skills.sh` (standalone skills):**
 
 ```bash
 npx skills add RMRdeveloper/swarmroom
-# or pick a single skill
-npx skills add RMRdeveloper/swarmroom --skill sw-pipeline
+# or pick standalone skills (no subagent delegation)
 npx skills add RMRdeveloper/swarmroom --skill sw-grilling
+npx skills add RMRdeveloper/swarmroom --skill sw-critic
+npx skills add RMRdeveloper/swarmroom --skill sw-spec
+npx skills add RMRdeveloper/swarmroom --skill sw-transcribe-audio
 ```
 
-`skills.sh` installs the same `skills/` directory (spec-compliant `SKILL.md`). The CLI `npx @rmrdeveloper/swarmroom` and `npx skills add` are two install channels for the same content — use whichever fits your setup.
+`skills.sh` installs the `skills/` mirror (4 standalone skills: `sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`). `sw-pipeline` is the orchestrator that delegates to 7 subagents (`sw-planner`, `sw-implementer`, …) and is available **only via `npx @rmrdeveloper/swarmroom`** (which installs both agents and skills). Use `skills.sh` for standalone skills, `npx @rmrdeveloper/swarmroom` for the full pipeline.
 
 `swarmroom --help` (or `npx --yes @rmrdeveloper/swarmroom --help`) lists flags. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (`--json` for the raw graph); it does not run agents. When `swarmroom` is on `PATH` (`npm i -g` or `npm i @rmrdeveloper/swarmroom`), bare `swarmroom tasks --tasks-file <path>` is equivalent; `npx --yes @rmrdeveloper/swarmroom` is required in clean `npx`-only checkouts where the binary is ephemeral.
 
@@ -181,9 +183,10 @@ src/
 │   ├── artifacts/CODING_GUIDELINES.md
 │   ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
 │   └── agents/sw-*.md
-skills/               # spec-compliant mirror for skills.sh (generated from src/assets/skills via scripts/sync-skills.mjs)
-├── sw-pipeline/SKILL.md
+skills/               # spec-compliant mirror for skills.sh — only standalone skills (sw-pipeline excluded, needs agents)
 ├── sw-grilling/SKILL.md
+├── sw-spec/SKILL.md
+├── sw-critic/SKILL.md
 └── sw-transcribe-audio/scripts/transcribe.py
 ```
 

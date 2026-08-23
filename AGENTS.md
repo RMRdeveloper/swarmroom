@@ -10,7 +10,7 @@ agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-re
   - `src/assets/agents/*.md`
   - `src/assets/skills/<name>/` (`SKILL.md` plus optional companion files the installer copies as-is)
   - `src/assets/artifacts/CODING_GUIDELINES.md`
-- `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`). Do NOT edit it by hand; run `npm run sync:skills` (and `npm run sync:skills:check` in CI) — it is derived from `src/assets/skills/`.
+- `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`). It contains **only standalone skills** (`sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`); `sw-pipeline` (orchestrator, delegates to 7 subagents) is excluded because `skills.sh` cannot install agents. Do NOT edit `skills/` by hand; run `npm run sync:skills` (and `npm run sync:skills:check` in CI) — it is derived from `src/assets/skills/`.
 - `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, `.agents/`, and the repo-root
   `CODING_GUIDELINES.md` are **gitignored installed copies** produced by the CLI.
   Do NOT edit them; a re-run of the installer overwrites them. Editing
