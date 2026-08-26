@@ -52,7 +52,7 @@ TOML, for Codex) into your editor's config directory and gets out of the way.
 
 ## Why teams reach for it
 
-- **Parallel pipelines, no clobbering.** Each run gets its own `.swarmroom/tasks/<runId>.json` via required `--tasks-file`; run N pipelines concurrently without overwriting.
+- **Parallel pipelines, no clobbering.** Each run gets its own `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) via required `--tasks-file`; run N pipelines concurrently without overwriting.
 - **`sw-grilling`: a structured interview, not a question dump.** Stress-tests
   scope and assumptions in rounds capped at 3 questions each, skipped
   questions get priority next round instead of getting buried, and you can
@@ -98,7 +98,7 @@ npx skills add RMRdeveloper/swarmroom --skill sw-transcribe-audio
 
 `skills.sh` installs the `skills/` mirror (4 standalone skills: `sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`). `sw-pipeline` is the orchestrator that delegates to 7 subagents (`sw-planner`, `sw-implementer`, …) and is available **only via `npx @rmrdeveloper/swarmroom`** (which installs both agents and skills). Use `skills.sh` for standalone skills, `npx @rmrdeveloper/swarmroom` for the full pipeline.
 
-`swarmroom --help` (or `npx --yes @rmrdeveloper/swarmroom --help`) lists flags. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (`--json` for the raw graph); it does not run agents. When `swarmroom` is on `PATH` (`npm i -g` or `npm i @rmrdeveloper/swarmroom`), bare `swarmroom tasks --tasks-file <path>` is equivalent; `npx --yes @rmrdeveloper/swarmroom` is required in clean `npx`-only checkouts where the binary is ephemeral.
+`swarmroom --help` (or `npx --yes @rmrdeveloper/swarmroom --help`) lists flags. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (blocks `field: value`); it does not run agents. When `swarmroom` is on `PATH` (`npm i -g` or `npm i @rmrdeveloper/swarmroom`), bare `swarmroom tasks --tasks-file <path>` is equivalent; `npx --yes @rmrdeveloper/swarmroom` is required in clean `npx`-only checkouts where the binary is ephemeral.
 
 Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex
 loads skills from `.agents/skills` (or `~/.agents/skills` when global).
@@ -125,7 +125,7 @@ sw-pipeline → (trivial? implementer → verifier)
             → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
 
-Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.json` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.json` (or `swarmroom tasks --tasks-file <runId>.json` when the binary is on `PATH`). Parallel runs with distinct `runId` never collide.
+Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.tasks` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.tasks` (or `swarmroom tasks --tasks-file <runId>.tasks` when the binary is on `PATH`). Parallel runs with distinct `runId` never collide. Format: blocks `field: value` separated by a blank line, no JSON.
 
 For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
 

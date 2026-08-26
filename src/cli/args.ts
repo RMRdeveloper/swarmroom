@@ -33,7 +33,7 @@ export type ParseResult =
   | { readonly kind: 'help' }
   | { readonly kind: 'version' }
   | { readonly kind: 'error'; readonly message: string }
-  | { readonly kind: 'tasks'; readonly command: TasksCommand; readonly dir: string; readonly json: boolean; readonly tasksFile: string };
+  | { readonly kind: 'tasks'; readonly command: TasksCommand; readonly dir: string; readonly tasksFile: string };
 
 export type TasksCommand =
   | { readonly kind: 'status' }
@@ -59,7 +59,6 @@ export function formatHelp(): string {
     ['-v, --verbose', 'list each installed file'],
     ['-q, --quiet', 'suppress per-target summaries (opening/closing still print)'],
     ['tasks [command]', 'inspect or mutate the task graph'],
-    ['--json', 'with tasks: emit one JSON document'],
     ['--tasks-file <path>', 'task graph file under .swarmroom/tasks/ (required for tasks)'],
     ['-h, --help', 'show this help'],
     ['-V, --version', 'print version'],
@@ -71,8 +70,8 @@ export function formatHelp(): string {
 
 Usage:
   swarmroom [options]
-  swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
-  npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
+  swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
+  npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
 
 Also:
   node src/cli.ts [options]
@@ -90,12 +89,10 @@ With no editor flags in a TTY, prompts interactively. Re-run to update installed
 
 function parseTasksArgs(argv: readonly string[]): ParseResult {
   let dir = cwd();
-  let json = false;
   let tasksFile: string | undefined;
   let tasksFileSeen = false;
   let command: TasksCommand = { kind: 'status' };
   let dirSeen = false;
-  let jsonSeen = false;
   let result: string | undefined;
   let error: string | undefined;
   let file: string | undefined;
@@ -107,13 +104,6 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
 
     if (a === '--help' || a === '-h') return { kind: 'help' };
     if (a === '--version' || a === '-V') return { kind: 'version' };
-
-    if (a === '--json') {
-      if (jsonSeen) return { kind: 'error', message: 'ambiguous repeated flag: --json\n' + HELP_HINT };
-      jsonSeen = true;
-      json = true;
-      continue;
-    }
 
     if (a === '--tasks-file') {
       if (tasksFileSeen) return { kind: 'error', message: 'ambiguous repeated flag: --tasks-file\n' + HELP_HINT };
@@ -172,15 +162,15 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
     if (result !== undefined || error !== undefined || file !== undefined) {
       return { kind: 'error', message: 'task flags require a subcommand\n' + HELP_HINT };
     }
-    return { kind: 'tasks', command, dir, json, tasksFile };
+    return { kind: 'tasks', command, dir, tasksFile };
   }
   if (name === 'validate' || name === 'ready') {
     if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined || file !== undefined) return { kind: 'error', message: `tasks ${name} takes no arguments\n${HELP_HINT}` };
-    return { kind: 'tasks', command: { kind: name }, dir, json, tasksFile };
+    return { kind: 'tasks', command: { kind: name }, dir, tasksFile };
   }
   if (name === 'status') {
     if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined || file !== undefined) return { kind: 'error', message: 'tasks status takes no arguments\n' + HELP_HINT };
-    return { kind: 'tasks', command: { kind: 'status' }, dir, json, tasksFile };
+    return { kind: 'tasks', command: { kind: 'status' }, dir, tasksFile };
   }
   if (name === 'set') {
     if (id === undefined || status === undefined || extra.length > 0) {
@@ -191,12 +181,12 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
     if (result !== undefined && error !== undefined) return { kind: 'error', message: '--result and --error cannot be used together\n' + HELP_HINT };
     if (result !== undefined && status !== 'completed') return { kind: 'error', message: '--result requires status completed\n' + HELP_HINT };
     if (error !== undefined && status !== 'failed') return { kind: 'error', message: '--error requires status failed\n' + HELP_HINT };
-    return { kind: 'tasks', command: { kind: 'set', id, status, ...(result !== undefined ? { result } : {}), ...(error !== undefined ? { error } : {}) }, dir, json, tasksFile };
+    return { kind: 'tasks', command: { kind: 'set', id, status, ...(result !== undefined ? { result } : {}), ...(error !== undefined ? { error } : {}) }, dir, tasksFile };
   }
   if (name === 'replan') {
     if (id !== undefined || extra.length > 0 || result !== undefined || error !== undefined) return { kind: 'error', message: 'tasks replan accepts only --file <path>\n' + HELP_HINT };
     if (file === undefined) return { kind: 'error', message: 'tasks replan requires --file <path>\n' + HELP_HINT };
-    return { kind: 'tasks', command: { kind: 'replan', file }, dir, json, tasksFile };
+    return { kind: 'tasks', command: { kind: 'replan', file }, dir, tasksFile };
   }
   return { kind: 'error', message: `unknown tasks command: ${name}\n${HELP_HINT}` };
 }

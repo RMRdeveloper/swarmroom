@@ -9,14 +9,25 @@ import { describe, it } from 'node:test';
 const execFileAsync = promisify(execFile);
 
 describe('task CLI errors', () => {
-  it('keeps --json task failures as one uncolored JSON document', async () => {
+  it('reports missing graph via stderr with new format', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'swarmroom-cli-'));
     await assert.rejects(
-      execFileAsync(process.execPath, ['src/cli.ts', 'tasks', '--tasks-file', 'run.json', 'ready', '--json', '--dir', dir]),
+      execFileAsync(process.execPath, ['src/cli.ts', 'tasks', '--tasks-file', 'run.tasks', 'ready', '--dir', dir]),
       (error: unknown) => {
         const commandError = error as { readonly stdout: string; readonly stderr: string };
-        assert.deepEqual(JSON.parse(commandError.stdout), { error: `No task graph at ${join(dir, '.swarmroom', 'tasks', 'run.json')}.` });
-        assert.equal(commandError.stderr, '');
+        assert.match(commandError.stderr, new RegExp(`No task graph at ${join(dir, '.swarmroom', 'tasks', 'run.tasks')}`));
+        return true;
+      },
+    );
+  });
+
+  it('rejects unknown --json flag', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'swarmroom-cli-'));
+    await assert.rejects(
+      execFileAsync(process.execPath, ['src/cli.ts', 'tasks', '--tasks-file', 'run.tasks', '--json', '--dir', dir]),
+      (error: unknown) => {
+        const commandError = error as { readonly stdout: string; readonly stderr: string };
+        assert.match(commandError.stderr, /unknown option: --json/);
         return true;
       },
     );

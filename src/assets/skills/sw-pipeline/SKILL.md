@@ -39,7 +39,7 @@ settled understanding to `sw-planner` as input. The planner never runs
   `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no `sw-grilling`.
 - **Otherwise**: run the `sw-grilling` gate first (see above). After the user
   confirms the settled understanding, `sw-planner` runs (read-first, then
-  plan). Planner emits a prose plan plus a compact JSON task graph. No
+  plan). Planner emits a prose plan plus a compact task graph in blocks. No
   automatic `sw-critic` gate. You may suggest `/sw-critic` as an optional
   manual check at this point, but it never blocks the graph.
 
@@ -48,8 +48,10 @@ settled understanding to `sw-planner` as input. The planner never runs
 Every pipeline run owns its own graph file. At the start pick a
 `runId` (slug of the feature/spec + `YYYYMMDD-HHmmss` + 4-char hash, e.g.
 `add-auth-20260821-1420-a3f9`; allow the user to override via `runId:` in the
-initial request). Then define `tasksFile = <runId>.json` (stored as
-`.swarmroom/tasks/<runId>.json`).
+initial request). Then define `tasksFile = <runId>.tasks` (stored as
+`.swarmroom/tasks/<runId>.tasks`).
+
+Block format (no JSON): each task is a block of `field: value` lines, blocks separated by a blank line, file ends with `\n`. Fields: `id, status, dependsOn ("-" if empty), agent, title, description (defaults to title), files (comma or "-"), acceptance (";" or "-"), result, error, attempts`. Each line `^([A-Za-z]+): (.*)$` with one space after colon. `createGraph` validates duplicates/cycles/missing deps. Legacy JSON no longer supported.
 
 Use the task-graph interface with `--tasks-file` on **every** invocation.
 Prefer `npx` so it works without a global install (production has no persistent
@@ -58,7 +60,7 @@ binary):
 1. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> validate` before execution and after graph changes.
 2. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> ready` to select the safe ready set.
 3. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> set <id> <status> [--result|--error]` for every status/result transition.
-4. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> replan --file <path>` for accepted replans.
+4. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> replan --file <path>` for accepted replans (proposal file also in blocks).
 
 If the `swarmroom` binary is already on `PATH` (global or `node_modules/.bin`
 after `npm i @rmrdeveloper/swarmroom`), `swarmroom tasks --tasks-file <tasksFile> ...`
@@ -68,7 +70,7 @@ the binary is ephemeral (`command not found: swarmroom`). Never use bare
 (`swarmroom` vs `@rmrdeveloper/swarmroom`).
 
 The orchestrator remains the sole authority that validates and applies graph
-changes; agents may only propose `{ addTasks, addDependencies }`. When neither
+changes; agents may only propose blocks for replans. When neither
 `npx --yes @rmrdeveloper/swarmroom` nor `swarmroom` is available (offline),
 persist `.swarmroom/tasks/<tasksFile>` yourself (ids `T1..Tn`) and perform the
 same validation, scheduling, transitions, and replanning manually. Tasks hold
@@ -110,8 +112,7 @@ If a stage reports only Low, do not loop — advance to completion.
 
 ## Replanning
 
-A subagent may propose `{ addTasks, addDependencies }`. Only you validate and
-apply. Agents do not mutate the graph.
+A subagent may propose blocks for `addTasks`/`addDependencies` (same block format; dependency block is `id` + `dependsOn` single id). Only you validate and apply. Agents do not mutate the graph.
 
 ## Token budget
 

@@ -57,6 +57,46 @@ Do not write code. Output only the plan.
 
 ## Task graph shape
 
-After the prose plan and verification section, emit a compact JSON task graph (ids T1..Tn). Include only execution data: id, title, description, status (`pending`), dependsOn, agent, files when known, acceptance. Do not generate requirements.md, design.md, spec.md, plan.md, or tasks.md.
+After the prose plan and verification section, emit a compact task graph in **blocks `field: value`** (ids T1..Tn), no JSON. Each task is a block of `field: value` lines separated by a blank line, stored as `.swarmroom/tasks/<runId>.tasks`. Fields:
+
+- `id: <string, required>`
+- `status: <pending|ready|running|blocked|completed|failed, required>`
+- `dependsOn: <comma-separated list of ids, or "-" if empty, required>`
+- `agent: <string, optional>`
+- `title: <string, required>`
+- `description: <string, optional — if missing defaults to title>`
+- `files: <comma-separated list, or "-" >`
+- `acceptance: <semicolon-separated list, or "-" >`
+- `result: <string, optional>`
+- `error: <string, optional>`
+- `attempts: <integer >=0, optional>`
+
+Rules: every non-empty line must be `^([A-Za-z]+): (.*)$` (one space after `:`), blocks separated by a blank line, malformed block reports `block N line L`. Isolated `"-"` means empty, do not mix with values. Canonical order: `id, status, dependsOn, agent, title, description, files, acceptance, result, error, attempts`. File ends with `\n`. `createGraph` validates duplicates/cycles/missing deps. Legacy JSON format no longer supported.
+
+Example (3 tasks with deps):
+
+```
+id: T1
+status: pending
+dependsOn: -
+title: Define domain types
+files: src/domain/types.ts
+acceptance: types exported; no any
+
+id: T2
+status: pending
+dependsOn: T1
+agent: sw-implementer
+title: Implement service
+description: Expose POST /login
+
+id: T3
+status: pending
+dependsOn: T1, T2
+agent: sw-verifier
+title: Verify service
+```
+
+Include only execution data: id, title, description, status, dependsOn, agent, files when known, acceptance. Do not generate requirements.md, design.md, spec.md, plan.md, or tasks.md.
 
 Task instructions may narrow scope, files, and acceptance checks for this run; they do not override repo docs (`AGENTS.md` / `CODING_GUIDELINES.md` / `CONTEXT.md` when present) or the baseline standards those docs leave in force.

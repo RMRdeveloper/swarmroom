@@ -75,27 +75,19 @@ describe('parseArgs', () => {
   });
 
   it('parses the tasks command', () => {
-    const parsed = parseArgs(['tasks', '--tasks-file', 'run-a.json']);
+    const parsed = parseArgs(['tasks', '--tasks-file', 'run-a.tasks']);
     assert.equal(parsed.kind, 'tasks');
     if (parsed.kind !== 'tasks') return;
-    assert.equal(parsed.json, false);
     assert.ok(parsed.dir.length > 0);
-    assert.equal(parsed.tasksFile, 'run-a.json');
+    assert.equal(parsed.tasksFile, 'run-a.tasks');
   });
 
-  it('parses tasks --json and --dir', () => {
-    const json = parseArgs(['tasks', '--tasks-file', 'a.json', '--json']);
-    assert.equal(json.kind, 'tasks');
-    if (json.kind !== 'tasks') return;
-    assert.equal(json.json, true);
-    assert.equal(json.tasksFile, 'a.json');
-
-    const withDir = parseArgs(['tasks', '--tasks-file', 'b.json', '--dir', '/tmp/x']);
+  it('parses tasks with --dir', () => {
+    const withDir = parseArgs(['tasks', '--tasks-file', 'b.tasks', '--dir', '/tmp/x']);
     assert.equal(withDir.kind, 'tasks');
     if (withDir.kind !== 'tasks') return;
     assert.equal(withDir.dir, '/tmp/x');
-    assert.equal(withDir.json, false);
-    assert.equal(withDir.tasksFile, 'b.json');
+    assert.equal(withDir.tasksFile, 'b.tasks');
   });
 
   it('requires --tasks-file for tasks', () => {
@@ -104,17 +96,10 @@ describe('parseArgs', () => {
     if (missing.kind !== 'error') return;
     assert.match(missing.message, /--tasks-file/);
 
-    const withBad = parseArgs(['tasks', '--tasks-file', '../escape.json']);
+    const withBad = parseArgs(['tasks', '--tasks-file', '../escape.tasks']);
     assert.equal(withBad.kind, 'error');
     if (withBad.kind !== 'error') return;
     assert.match(withBad.message, /must not contain `\.\.`/);
-  });
-
-  it('rejects --json outside tasks', () => {
-    const parsed = parseArgs(['--json']);
-    assert.equal(parsed.kind, 'error');
-    if (parsed.kind !== 'error') return;
-    assert.match(parsed.message, /unknown option: --json/);
   });
 
   it('rejects unknown positionals including status', () => {
@@ -156,24 +141,23 @@ describe('parseArgs', () => {
   });
 
   it('parses task subcommands and their values', () => {
-    const ready = parseArgs(['tasks', '--tasks-file', 'r.json', 'ready', '--json', '--dir', '/tmp/project']);
-    assert.deepEqual(ready, { kind: 'tasks', command: { kind: 'ready' }, dir: '/tmp/project', json: true, tasksFile: 'r.json' });
+    const ready = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'ready', '--dir', '/tmp/project']);
+    assert.deepEqual(ready, { kind: 'tasks', command: { kind: 'ready' }, dir: '/tmp/project', tasksFile: 'r.tasks' });
 
-    const set = parseArgs(['tasks', '--tasks-file', 'r.json', 'set', 'T1', 'failed', '--error', 'boom']);
-    assert.deepEqual(set, { kind: 'tasks', command: { kind: 'set', id: 'T1', status: 'failed', error: 'boom' }, dir: process.cwd(), json: false, tasksFile: 'r.json' });
+    const set = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'set', 'T1', 'failed', '--error', 'boom']);
+    assert.deepEqual(set, { kind: 'tasks', command: { kind: 'set', id: 'T1', status: 'failed', error: 'boom' }, dir: process.cwd(), tasksFile: 'r.tasks' });
 
-    const replan = parseArgs(['tasks', '--tasks-file', 'r.json', 'replan', '--file', 'proposal.json']);
+    const replan = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'replan', '--file', 'proposal.tasks']);
     assert.equal(replan.kind, 'tasks');
-    if (replan.kind === 'tasks') assert.deepEqual(replan.command, { kind: 'replan', file: 'proposal.json' });
+    if (replan.kind === 'tasks') assert.deepEqual(replan.command, { kind: 'replan', file: 'proposal.tasks' });
   });
 
   it('rejects ambiguous task flags and incompatible metadata', () => {
     for (const argv of [
-      ['tasks', '--tasks-file', 'a.json', '--json', '--json'],
-      ['tasks', '--tasks-file', 'a.json', 'set', 'T1', 'failed', '--result', 'done', '--error', 'bad'],
-      ['tasks', '--tasks-file', 'a.json', 'replan', '--file', 'a.json', '--file', 'b.json'],
-      ['tasks', '--tasks-file', 'a.json', 'set', 'T1', 'unknown'],
-      ['tasks', '--tasks-file', 'a.json', '--tasks-file', 'b.json', 'status'],
+      ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'failed', '--result', 'done', '--error', 'bad'],
+      ['tasks', '--tasks-file', 'a.tasks', 'replan', '--file', 'a.tasks', '--file', 'b.tasks'],
+      ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'unknown'],
+      ['tasks', '--tasks-file', 'a.tasks', '--tasks-file', 'b.tasks', 'status'],
     ]) {
       assert.equal(parseArgs(argv).kind, 'error');
     }
@@ -181,8 +165,8 @@ describe('parseArgs', () => {
 
   it('rejects metadata whose status does not match its meaning', () => {
     for (const argv of [
-      ['tasks', '--tasks-file', 'a.json', 'set', 'T1', 'failed', '--result', 'done'],
-      ['tasks', '--tasks-file', 'a.json', 'set', 'T1', 'completed', '--error', 'bad'],
+      ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'failed', '--result', 'done'],
+      ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'completed', '--error', 'bad'],
     ]) {
       const parsed = parseArgs(argv);
       assert.equal(parsed.kind, 'error');
@@ -192,5 +176,12 @@ describe('parseArgs', () => {
 
   it('formatHelp mentions --tasks-file', () => {
     assert.match(formatHelp(), /--tasks-file/);
+  });
+
+  it('rejects unknown --json flag (removed in breaking change)', () => {
+    const parsed = parseArgs(['tasks', '--tasks-file', 'a.tasks', '--json']);
+    assert.equal(parsed.kind, 'error');
+    if (parsed.kind !== 'error') return;
+    assert.match(parsed.message, /unknown option: --json/);
   });
 });

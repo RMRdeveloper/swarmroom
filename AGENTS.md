@@ -26,7 +26,7 @@ npm run build        # bundle CLI to dist/cli.js (required for npm publish / npx
 npm run sync:skills  # regenerate skills/ mirror for skills.sh
 npm run setup        # node src/cli.ts (run the installer; alias)
 node src/cli.ts --cursor --opencode --codex --global --force   # non-interactive install
-node src/cli.ts tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>] [--json]
+node src/cli.ts tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
 ```
 
 Local development runs TypeScript directly under Node ≥ 23.6 (native type
@@ -50,7 +50,7 @@ published bin needs Node ≥ 20.
   `mode: subagent` for opencode/Claude, and to TOML (`name`, `description`,
   `developer_instructions`) for Codex. Keep Cursor-only lines in the assets.
 - `src/domain/tasks.ts` / `src/domain/scheduler.ts` — pure Task Graph + ready/parallel selection.
-- `src/io/task-store.ts` — read/write `.swarmroom/tasks/<runId>.json` in a consumer project (isolated per pipeline, `--tasks-file` required).
+- `src/io/task-store.ts` — read/write `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) in a consumer project (isolated per pipeline, `--tasks-file` required).
 - `src/cli.ts` — argv parsing (no framework, stdlib readline for prompts); install, or task graph status, validation, scheduling, mutation, and replanning commands.
 
 ## TypeScript quirks (strict)

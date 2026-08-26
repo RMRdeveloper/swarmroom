@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 
-import type { TaskGraph, TaskStatus } from '../domain/tasks.ts';
+import type { Task, TaskGraph, TaskStatus } from '../domain/tasks.ts';
 import { isTaskStatus, propagateFailure, withError, withResult, withStatus } from '../domain/tasks.ts';
 import { applyReplan, selectRunnable, type ReplanProposal } from '../domain/scheduler.ts';
-import { readTaskGraph, serializeTaskGraph, taskGraphPath, writeTaskGraph } from '../io/task-store.ts';
+import { readTaskGraph, taskGraphPath, writeTaskGraph } from '../io/task-store.ts';
 import type { TasksCommand } from './args.ts';
 import * as style from './style.ts';
 
@@ -46,10 +46,9 @@ export function formatTaskSummary(graph: TaskGraph): string {
 
 export function renderTasks(
   graph: TaskGraph | null,
-  options: { readonly dir: string; readonly json: boolean; readonly tasksFile: string },
+  options: { readonly dir: string; readonly tasksFile: string },
 ): string {
   if (!graph) return `No task graph at ${taskGraphPath(options.dir, options.tasksFile)}.`;
-  if (options.json) return serializeTaskGraph(graph);
   const lines = formatTaskLines(graph);
   const summary = formatTaskSummary(graph) || '0 tasks';
   if (lines.length === 0) return `\n${summary}`;
@@ -58,15 +57,10 @@ export function renderTasks(
 
 export async function runTasks(options: {
   readonly dir: string;
-  readonly json: boolean;
   readonly tasksFile: string;
   readonly command?: TasksCommand;
 }): Promise<void> {
   return runTaskCommand({ ...options, command: options.command ?? { kind: 'status' } });
-}
-
-function jsonDocument(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`;
 }
 
 function requireGraph(graph: TaskGraph | null, dir: string, tasksFile: string): TaskGraph {
@@ -74,61 +68,196 @@ function requireGraph(graph: TaskGraph | null, dir: string, tasksFile: string): 
   return graph;
 }
 
+const VALID_TASK_KEYS = new Set([
+  'id',
+  'status',
+  'dependsOn',
+  'agent',
+  'title',
+  'description',
+  'files',
+  'acceptance',
+  'result',
+  'error',
+  'attempts',
+]);
+const LINE_RE = /^([A-Za-z]+): (.*)$/;
+
+function splitList(value: string, sep: string): readonly string[] {
+  if (value === '-') return [];
+  const parts = value.split(sep).map((p) => p.trim());
+  return parts;
+}
+
 async function readProposal(file: string): Promise<ReplanProposal> {
   const raw = await readFile(file, 'utf8');
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`invalid replan proposal JSON: ${message}`);
+  const normalized = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  const trimmedStart = normalized.trimStart();
+  if (trimmedStart.startsWith('{') || trimmedStart.startsWith('[')) {
+    throw new Error('formato JSON legacy no soportado en propuesta — se esperaba bloques campo: valor');
   }
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('replan proposal must be an object');
-  }
-  const proposal = parsed as Record<string, unknown>;
-  for (const key of Object.keys(proposal)) {
-    if (key !== 'addTasks' && key !== 'addDependencies') throw new Error(`unknown replan proposal key: ${key}`);
-  }
-  if (proposal.addTasks !== undefined && !Array.isArray(proposal.addTasks)) throw new Error('addTasks must be an array');
-  if (proposal.addDependencies !== undefined && !Array.isArray(proposal.addDependencies)) throw new Error('addDependencies must be an array');
-  proposal.addTasks?.forEach((task, index) => validateProposalTask(task, index));
-  proposal.addDependencies?.forEach((dependency, index) => validateProposalDependency(dependency, index));
-  return proposal as ReplanProposal;
-}
+  if (normalized.trim() === '') return {};
 
-function validateProposalTask(raw: unknown, index: number): void {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`replan addTasks[${index}] must be an object`);
-  const task = raw as Record<string, unknown>;
-  const allowedFields = new Set(['id', 'title', 'description', 'status', 'dependsOn', 'agent', 'files', 'acceptance', 'result', 'error', 'attempts']);
-  for (const field of Object.keys(task)) {
-    if (!allowedFields.has(field)) throw new Error(`replan addTasks[${index}] unknown key: ${field}`);
+  const rawLines = normalized.split('\n');
+  type Block = { lines: string[]; startLine: number };
+  const blocks: Block[] = [];
+  let current: string[] = [];
+  let blockStart = 1;
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i]!;
+    if (line.trim() === '') {
+      if (current.length > 0) {
+        blocks.push({ lines: current, startLine: blockStart });
+        current = [];
+      }
+      continue;
+    }
+    if (current.length === 0) blockStart = i + 1;
+    current.push(line);
   }
-  for (const field of ['id', 'title', 'description', 'status', 'dependsOn']) {
-    if (!(field in task)) throw new Error(`replan addTasks[${index}] missing ${field}`);
-  }
-  for (const field of ['id', 'title', 'description']) {
-    if (typeof task[field] !== 'string' || task[field] === '') throw new Error(`replan addTasks[${index}].${field} must be a non-empty string`);
-  }
-  if (typeof task.status !== 'string' || !isTaskStatus(task.status)) throw new Error(`replan addTasks[${index}].status is invalid`);
-  if (!Array.isArray(task.dependsOn) || task.dependsOn.some((dependency) => typeof dependency !== 'string')) throw new Error(`replan addTasks[${index}].dependsOn must be an array of strings`);
-  for (const field of ['agent', 'result', 'error']) {
-    if (task[field] !== undefined && (typeof task[field] !== 'string' || task[field] === '')) throw new Error(`replan addTasks[${index}].${field} must be a non-empty string`);
-  }
-  for (const field of ['files', 'acceptance']) {
-    if (task[field] !== undefined && (!Array.isArray(task[field]) || task[field].some((value) => typeof value !== 'string'))) throw new Error(`replan addTasks[${index}].${field} must be an array of strings`);
-  }
-  if (task.attempts !== undefined && (typeof task.attempts !== 'number' || !Number.isInteger(task.attempts) || task.attempts < 0)) throw new Error(`replan addTasks[${index}].attempts must be a non-negative integer`);
-}
+  if (current.length > 0) blocks.push({ lines: current, startLine: blockStart });
 
-function validateProposalDependency(raw: unknown, index: number): void {
-  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error(`replan addDependencies[${index}] must be an object`);
-  const dependency = raw as Record<string, unknown>;
-  for (const field of Object.keys(dependency)) {
-    if (field !== 'id' && field !== 'dependsOn') throw new Error(`replan addDependencies[${index}] unknown key: ${field}`);
+  const addTasks: Task[] = [];
+  const addDependencies: { readonly id: string; readonly dependsOn: string }[] = [];
+
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const block = blocks[bi]!;
+    const n = bi + 1;
+    const rec = new Map<string, string>();
+    for (let li = 0; li < block.lines.length; li++) {
+      const line = block.lines[li]!;
+      const m = line.match(LINE_RE);
+      if (!m) throw new Error(`replan bloque ${n} línea ${block.startLine + li}: línea malformada "${line}"`);
+      const k = m[1]!;
+      const v = m[2]!;
+      if (rec.has(k)) throw new Error(`replan bloque ${n}: clave duplicada "${k}"`);
+      rec.set(k, v);
+    }
+
+    const isDependencyBlock = rec.size === 2 && rec.has('id') && rec.has('dependsOn');
+
+    if (!isDependencyBlock) {
+      // Task addition block (any block that is not exactly id+dependsOn)
+      for (const k of rec.keys()) {
+        if (!VALID_TASK_KEYS.has(k)) throw new Error(`replan bloque ${n}: clave desconocida "${k}"`);
+      }
+      for (const k of ['id', 'title', 'status', 'dependsOn']) {
+        if (!rec.has(k)) throw new Error(`replan bloque ${n}: falta campo "${k}"`);
+      }
+      const id = rec.get('id')!.trim();
+      const title = rec.get('title')!.trim();
+      const statusRaw = rec.get('status')!.trim();
+      const dependsOnRaw = rec.get('dependsOn')!;
+      const descriptionRaw = rec.get('description');
+      if (id.length === 0) throw new Error(`replan bloque ${n}: id debe ser string no vacío`);
+      if (title.length === 0) throw new Error(`replan bloque ${n}: title debe ser string no vacío`);
+      if (!isTaskStatus(statusRaw)) throw new Error(`replan bloque ${n}: status inválido "${statusRaw}"`);
+      const description = descriptionRaw !== undefined && descriptionRaw.trim().length > 0 ? descriptionRaw.trim() : title;
+      if (description.length === 0) throw new Error(`replan bloque ${n}: description debe ser string no vacío`);
+      let dependsOn: readonly string[];
+      if (dependsOnRaw.trim() === '-') dependsOn = [];
+      else {
+        dependsOn = splitList(dependsOnRaw, ',');
+        for (const d of dependsOn) {
+          if (d.length === 0) throw new Error(`replan bloque ${n}: dependsOn contiene elemento vacío`);
+          if (d === '-') throw new Error(`replan bloque ${n}: dependsOn no puede mezclar "-" con valores`);
+        }
+      }
+      // Optional fields validation (reuse same rules as task-store but produce replan messages)
+      const agentRaw = rec.get('agent');
+      let agent: string | undefined;
+      if (agentRaw !== undefined) {
+        const v = agentRaw.trim();
+        if (v.length === 0) throw new Error(`replan bloque ${n}: agent debe ser string no vacío`);
+        agent = v;
+      }
+      let files: readonly string[] | undefined;
+      const filesRaw = rec.get('files');
+      if (filesRaw !== undefined) {
+        const t = filesRaw.trim();
+        if (t !== '-') {
+          if (t.length === 0) throw new Error(`replan bloque ${n}: files no puede ser vacío`);
+          files = splitList(filesRaw, ',');
+          for (const f of files) if (f.length === 0) throw new Error(`replan bloque ${n}: files contiene elemento vacío`);
+        }
+      }
+      let acceptance: readonly string[] | undefined;
+      const acceptanceRaw = rec.get('acceptance');
+      if (acceptanceRaw !== undefined) {
+        const t = acceptanceRaw.trim();
+        if (t !== '-') {
+          if (t.length === 0) throw new Error(`replan bloque ${n}: acceptance no puede ser vacío`);
+          acceptance = splitList(acceptanceRaw, ';');
+          for (const a of acceptance) if (a.length === 0) throw new Error(`replan bloque ${n}: acceptance contiene elemento vacío`);
+        }
+      }
+      let result: string | undefined;
+      const resultRaw = rec.get('result');
+      if (resultRaw !== undefined) {
+        const v = resultRaw.trim();
+        if (v.length === 0) throw new Error(`replan bloque ${n}: result debe ser string no vacío`);
+        result = v;
+      }
+      let error: string | undefined;
+      const errorRaw = rec.get('error');
+      if (errorRaw !== undefined) {
+        const v = errorRaw.trim();
+        if (v.length === 0) throw new Error(`replan bloque ${n}: error debe ser string no vacío`);
+        error = v;
+      }
+      let attempts: number | undefined;
+      const attemptsRaw = rec.get('attempts');
+      if (attemptsRaw !== undefined) {
+        const v = attemptsRaw.trim();
+        if (!/^-?\d+$/.test(v)) throw new Error(`replan bloque ${n}: attempts debe ser entero >=0, got "${v}"`);
+        const num = Number(v);
+        if (!Number.isInteger(num) || num < 0) throw new Error(`replan bloque ${n}: attempts debe ser entero >=0, got "${v}"`);
+        attempts = num;
+      }
+
+      const task: Task = {
+        id,
+        title,
+        description,
+        status: statusRaw as TaskStatus,
+        dependsOn,
+        ...(agent !== undefined ? { agent } : {}),
+        ...(files !== undefined ? { files } : {}),
+        ...(acceptance !== undefined ? { acceptance } : {}),
+        ...(result !== undefined ? { result } : {}),
+        ...(error !== undefined ? { error } : {}),
+        ...(attempts !== undefined ? { attempts } : {}),
+      };
+      addTasks.push(task);
+    } else {
+      // Dependency addition block — must have exactly id and dependsOn
+      const allowed = new Set(['id', 'dependsOn']);
+      for (const k of rec.keys()) {
+        if (!allowed.has(k)) throw new Error(`replan bloque ${n}: clave desconocida "${k}" (en bloque de dependencia solo id/dependsOn)`);
+      }
+      if (!rec.has('id')) throw new Error(`replan bloque ${n}: falta campo "id"`);
+      if (!rec.has('dependsOn')) throw new Error(`replan bloque ${n}: falta campo "dependsOn"`);
+      const id = rec.get('id')!.trim();
+      const dep = rec.get('dependsOn')!.trim();
+      if (id.length === 0) throw new Error(`replan bloque ${n}: id debe ser string no vacío`);
+      if (dep.length === 0) throw new Error(`replan bloque ${n}: dependsOn debe ser string no vacío`);
+      if (dep === '-') throw new Error(`replan bloque ${n}: dependsOn no puede ser "-" en dependencia`);
+      if (dep.includes(',')) throw new Error(`replan bloque ${n}: dependsOn en dependencia debe ser un solo id`);
+      if (dep.includes(';')) throw new Error(`replan bloque ${n}: dependsOn en dependencia debe ser un solo id`);
+      addDependencies.push({ id, dependsOn: dep });
+    }
   }
-  if (typeof dependency.id !== 'string' || dependency.id === '') throw new Error(`replan addDependencies[${index}].id must be a non-empty string`);
-  if (typeof dependency.dependsOn !== 'string' || dependency.dependsOn === '') throw new Error(`replan addDependencies[${index}].dependsOn must be a non-empty string`);
+
+  const proposal: ReplanProposal = {
+    ...(addTasks.length > 0 ? { addTasks } : {}),
+    ...(addDependencies.length > 0 ? { addDependencies } : {}),
+  };
+  // Also validate via parseTaskGraph for tasks shape? Already validated. Need to ensure no id collision will be caught by applyReplan.
+  // If both arrays empty and file had only whitespace? Already returned {} above. If file had blocks but none validated? Would be empty proposal? Return accordingly.
+  if (addTasks.length === 0 && addDependencies.length === 0 && blocks.length > 0) {
+    // Could be block with only unknown shape; already thrown above.
+  }
+  return proposal;
 }
 
 export function humanReady(graph: TaskGraph): string {
@@ -140,7 +269,6 @@ export function humanReady(graph: TaskGraph): string {
 export async function runTaskCommand(options: {
   readonly command: TasksCommand;
   readonly dir: string;
-  readonly json: boolean;
   readonly tasksFile: string;
 }): Promise<void> {
   const graph = await readTaskGraph(options.dir, options.tasksFile);
@@ -148,19 +276,17 @@ export async function runTaskCommand(options: {
 
   if (command.kind === 'status') {
     const output = renderTasks(graph, options);
-    if (options.json) process.stdout.write(graph ? output : jsonDocument({ graph: null, path: taskGraphPath(options.dir, options.tasksFile) }));
-    else console.log(output);
+    console.log(output);
     return;
   }
   if (command.kind === 'validate') {
     const validGraph = requireGraph(graph, options.dir, options.tasksFile);
-    process.stdout.write(options.json ? jsonDocument({ valid: true, tasks: validGraph.tasks.length }) : `Valid task graph: ${validGraph.tasks.length} tasks.\n`);
+    console.log(`Valid task graph: ${validGraph.tasks.length} tasks.`);
     return;
   }
   if (command.kind === 'ready') {
     const validGraph = requireGraph(graph, options.dir, options.tasksFile);
-    const ready = selectRunnable(validGraph);
-    process.stdout.write(options.json ? jsonDocument({ tasks: ready }) : `${humanReady(validGraph)}\n`);
+    console.log(`${humanReady(validGraph)}`);
     return;
   }
   if (command.kind === 'set') {
@@ -173,12 +299,14 @@ export async function runTaskCommand(options: {
           ? propagateFailure(withStatus(current, command.id, command.status))
           : withStatus(current, command.id, command.status);
     await writeTaskGraph(options.dir, next, options.tasksFile);
-    process.stdout.write(options.json ? serializeTaskGraph(next) : `Updated ${command.id}.\n`);
+    console.log(`Updated ${command.id}.`);
     return;
   }
   const current = requireGraph(graph, options.dir, options.tasksFile);
+  // Validate current graph via blocks: ensure parse succeeded (already). Now apply replan.
+  // Also validate that the current graph file is not corrupted by re-parsing raw if needed — already done.
   const proposal = await readProposal(command.file);
   const next = applyReplan(current, proposal);
   await writeTaskGraph(options.dir, next, options.tasksFile);
-  process.stdout.write(options.json ? serializeTaskGraph(next) : `Replanned task graph: ${next.tasks.length} tasks.\n`);
+  console.log(`Replanned task graph: ${next.tasks.length} tasks.`);
 }
