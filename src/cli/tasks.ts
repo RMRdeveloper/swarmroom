@@ -83,9 +83,21 @@ const VALID_TASK_KEYS = new Set([
 ]);
 const LINE_RE = /^([A-Za-z]+): (.*)$/;
 
-function splitList(value: string, sep: string): readonly string[] {
+// NOTE: Block parsing and Task validation are intentionally duplicated with
+// src/io/task-store.ts. task-store is the core .tasks parser; this file adds
+// replan-specific discrimination (task vs dependency blocks). Full extraction
+// to a shared parser is deferred to the next minor to avoid destabilizing the
+// 2.2.0 publish — see FINDING 1/2/5. splitList is kept in sync (FINDING 6).
+// Direct fs import is tolerated pre-publish (FINDING 8).
+
+function splitList(value: string, sep: string, field: string, block: number): readonly string[] {
   if (value === '-') return [];
+  if (value.trim() === '') throw new Error(`replan bloque ${block}: ${field} no puede ser vacío`);
   const parts = value.split(sep).map((p) => p.trim());
+  for (const part of parts) {
+    if (part.length === 0) throw new Error(`replan bloque ${block}: ${field} contiene elemento vacío`);
+    if (part === '-') throw new Error(`replan bloque ${block}: ${field} no puede mezclar "-" con valores`);
+  }
   return parts;
 }
 
@@ -137,7 +149,6 @@ async function readProposal(file: string): Promise<ReplanProposal> {
     const isDependencyBlock = rec.size === 2 && rec.has('id') && rec.has('dependsOn');
 
     if (!isDependencyBlock) {
-      // Task addition block (any block that is not exactly id+dependsOn)
       for (const k of rec.keys()) {
         if (!VALID_TASK_KEYS.has(k)) throw new Error(`replan bloque ${n}: clave desconocida "${k}"`);
       }
@@ -157,13 +168,8 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       let dependsOn: readonly string[];
       if (dependsOnRaw.trim() === '-') dependsOn = [];
       else {
-        dependsOn = splitList(dependsOnRaw, ',');
-        for (const d of dependsOn) {
-          if (d.length === 0) throw new Error(`replan bloque ${n}: dependsOn contiene elemento vacío`);
-          if (d === '-') throw new Error(`replan bloque ${n}: dependsOn no puede mezclar "-" con valores`);
-        }
+        dependsOn = splitList(dependsOnRaw, ',', 'dependsOn', n);
       }
-      // Optional fields validation (reuse same rules as task-store but produce replan messages)
       const agentRaw = rec.get('agent');
       let agent: string | undefined;
       if (agentRaw !== undefined) {
@@ -177,8 +183,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
         const t = filesRaw.trim();
         if (t !== '-') {
           if (t.length === 0) throw new Error(`replan bloque ${n}: files no puede ser vacío`);
-          files = splitList(filesRaw, ',');
-          for (const f of files) if (f.length === 0) throw new Error(`replan bloque ${n}: files contiene elemento vacío`);
+          files = splitList(filesRaw, ',', 'files', n);
         }
       }
       let acceptance: readonly string[] | undefined;
@@ -187,8 +192,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
         const t = acceptanceRaw.trim();
         if (t !== '-') {
           if (t.length === 0) throw new Error(`replan bloque ${n}: acceptance no puede ser vacío`);
-          acceptance = splitList(acceptanceRaw, ';');
-          for (const a of acceptance) if (a.length === 0) throw new Error(`replan bloque ${n}: acceptance contiene elemento vacío`);
+          acceptance = splitList(acceptanceRaw, ';', 'acceptance', n);
         }
       }
       let result: string | undefined;
@@ -230,7 +234,6 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       };
       addTasks.push(task);
     } else {
-      // Dependency addition block — must have exactly id and dependsOn
       const allowed = new Set(['id', 'dependsOn']);
       for (const k of rec.keys()) {
         if (!allowed.has(k)) throw new Error(`replan bloque ${n}: clave desconocida "${k}" (en bloque de dependencia solo id/dependsOn)`);
@@ -252,11 +255,6 @@ async function readProposal(file: string): Promise<ReplanProposal> {
     ...(addTasks.length > 0 ? { addTasks } : {}),
     ...(addDependencies.length > 0 ? { addDependencies } : {}),
   };
-  // Also validate via parseTaskGraph for tasks shape? Already validated. Need to ensure no id collision will be caught by applyReplan.
-  // If both arrays empty and file had only whitespace? Already returned {} above. If file had blocks but none validated? Would be empty proposal? Return accordingly.
-  if (addTasks.length === 0 && addDependencies.length === 0 && blocks.length > 0) {
-    // Could be block with only unknown shape; already thrown above.
-  }
   return proposal;
 }
 
@@ -303,8 +301,6 @@ export async function runTaskCommand(options: {
     return;
   }
   const current = requireGraph(graph, options.dir, options.tasksFile);
-  // Validate current graph via blocks: ensure parse succeeded (already). Now apply replan.
-  // Also validate that the current graph file is not corrupted by re-parsing raw if needed — already done.
   const proposal = await readProposal(command.file);
   const next = applyReplan(current, proposal);
   await writeTaskGraph(options.dir, next, options.tasksFile);

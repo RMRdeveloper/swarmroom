@@ -12,6 +12,12 @@ import {
 export const TASKS_DIR = '.swarmroom';
 export const TASKS_SUBDIR = 'tasks';
 
+// NOTE: Block parsing (LINE_RE, splitList, parseBlock) is duplicated with
+// src/cli/tasks.ts. This file is the canonical .tasks parser; cli/tasks adds
+// replan-specific dependency-block discrimination. Full extraction is deferred
+// to next minor to avoid destabilizing 2.2.0 (FINDING 1/2/5). splitList kept
+// in sync (FINDING 6). Direct fs import is tolerated pre-publish (FINDING 8).
+
 const VALID_KEYS = new Set([
   'id',
   'status',
@@ -62,9 +68,6 @@ export function taskGraphPath(projectRoot: string, tasksFile: string): string {
 
 function splitList(value: string, sep: string, field: string, block: number): readonly string[] {
   if (value === '-') return [];
-  if (value.includes('-') && value.trim() === '-') {
-    // handled above; mixture with "-" is invalid
-  }
   if (value.trim() === '') throw new Error(`bloque ${block}: ${field} no puede ser vacío`);
   const parts = value.split(sep).map((p) => p.trim());
   for (const part of parts) {
