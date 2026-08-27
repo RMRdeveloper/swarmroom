@@ -6,28 +6,28 @@ How to write code in this repo: the principles and style rules every change must
 
 Each row is expanded, with examples, in the matching section below.
 
-| Do                                                 | Don't                                                              |
-| ---------------------------------------------------| ---------------------------------------------------------------------- |
-| Early return on bad input                          | Pyramid `if/else` nesting                                            |
-| Explicit error, fail now                           | Multiple fallbacks that hide the real failure                        |
-| One responsibility per unit                        | Validate + transform + persist + notify in one place                 |
-| Extract when duplication repeats                   | Abstract before a second real use                                    |
-| Ship the simplest solution for the current problem | Add layers, hooks, or config "just in case"                          |
-| Build only what's needed today                     | Add fields/params/branches for a future case that hasn't arrived     |
-| Compose small, focused units                       | Build deep inheritance chains for unrelated behavior                 |
-| Talk only to immediate collaborators               | Reach through several levels of another object's internal structure  |
-| A function either does or returns, not both        | Mix a side effect into what looks like a getter                      |
-| Validate once at the edge                          | Re-validate the same invariant in every layer                        |
-| One validator per input                            | Two validators for the same body/query                               |
+| Do                                                 | Don't                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Early return on bad input                          | Pyramid `if/else` nesting                                                                   |
+| Explicit error, fail now                           | Multiple fallbacks that hide the real failure                                               |
+| One responsibility per unit                        | Validate + transform + persist + notify in one place                                        |
+| Extract when duplication repeats                   | Abstract before a second real use                                                           |
+| Ship the simplest solution for the current problem | Add layers, hooks, or config "just in case"                                                 |
+| Build only what's needed today                     | Add fields/params/branches for a future case that hasn't arrived                            |
+| Compose small, focused units                       | Build deep inheritance chains for unrelated behavior                                        |
+| Talk only to immediate collaborators               | Reach through several levels of another object's internal structure                         |
+| A function either does or returns, not both        | Mix a side effect into what looks like a getter                                             |
+| Validate once at the edge                          | Re-validate the same invariant in every layer                                               |
+| One validator per input                            | Two validators for the same body/query                                                      |
 | Let errors surface with context                    | Swallow errors in an empty or generic `catch`, or catch-and-continue as if nothing happened |
-| Return new values instead of mutating input        | Mutate parameters and hide the side effect from the caller           |
-| One consistent meaning per null/undefined          | Overload null/undefined to mean several different business states   |
-| Inject dependencies so units are easy to test      | Hardcode dependencies that force hitting real infra to test          |
-| Inner layers depend on nothing outward             | Let domain logic import framework/DB/HTTP details directly           |
-| Names that reveal role or domain meaning           | Vague names (`data`, `info`, `temp`, `result`, `obj`)                 |
-| Named const / enum / contract for domain literals  | Magic strings scattered through the codebase                         |
-| Depend on interfaces/ports where variation is real | Couple a use case directly to a concrete implementation              |
-| Comments only for important non-obvious intent     | Narrating comments, noise, or stale TODOs                            |
+| Return new values instead of mutating input        | Mutate parameters and hide the side effect from the caller                                  |
+| One consistent meaning per null/undefined          | Overload null/undefined to mean several different business states                           |
+| Inject dependencies so units are easy to test      | Hardcode dependencies that force hitting real infra to test                                 |
+| Inner layers depend on nothing outward             | Let domain logic import framework/DB/HTTP details directly                                  |
+| Names that reveal role or domain meaning           | Vague names (`data`, `info`, `temp`, `result`, `obj`)                                       |
+| Named const / enum / contract for domain literals  | Magic strings scattered through the codebase                                                |
+| Depend on interfaces/ports where variation is real | Couple a use case directly to a concrete implementation                                     |
+| Comments only for important non-obvious intent     | Narrating comments, noise, or stale TODOs                                                   |
 
 ## Principles
 
@@ -41,24 +41,24 @@ function getDiscount(user) {
   if (user) {
     if (user.isActive) {
       if (user.hasSubscription) {
-        return 0.2
+        return 0.2;
       } else {
-        return 0
+        return 0;
       }
     } else {
-      return 0
+      return 0;
     }
   } else {
-    return 0
+    return 0;
   }
 }
 
 // Good — guard clauses, happy path at the end, shallow indent
 function getDiscount(user) {
-  if (!user) return 0
-  if (!user.isActive) return 0
-  if (!user.hasSubscription) return 0
-  return 0.2
+  if (!user) return 0;
+  if (!user.isActive) return 0;
+  if (!user.hasSubscription) return 0;
+  return 0.2;
 }
 ```
 
@@ -71,15 +71,15 @@ Invalid input, impossible state, or a broken dependency should fail immediately 
 ```js
 // Bad — silent fallback hides a broken invariant
 function getShippingCost(order) {
-  const zone = ZONES[order.zoneId] || ZONES.default // hides a bad zoneId
-  return zone.baseCost
+  const zone = ZONES[order.zoneId] || ZONES.default; // hides a bad zoneId
+  return zone.baseCost;
 }
 
 // Good — fails immediately with a clear error
 function getShippingCost(order) {
-  const zone = ZONES[order.zoneId]
-  if (!zone) throw new Error(`Unknown zoneId: ${order.zoneId}`)
-  return zone.baseCost
+  const zone = ZONES[order.zoneId];
+  if (!zone) throw new Error(`Unknown zoneId: ${order.zoneId}`);
+  return zone.baseCost;
 }
 ```
 
@@ -90,25 +90,25 @@ A function, class, or module has one reason to change. If it does two jobs, spli
 ```js
 // Bad — validates, transforms, persists, and notifies all in one place
 async function saveUser(data) {
-  if (!data.email) throw new Error('email required')
-  const normalized = { ...data, email: data.email.trim().toLowerCase() }
-  await db.users.insert(normalized)
-  await mailer.send(normalized.email, 'welcome')
+  if (!data.email) throw new Error('email required');
+  const normalized = { ...data, email: data.email.trim().toLowerCase() };
+  await db.users.insert(normalized);
+  await mailer.send(normalized.email, 'welcome');
 }
 
 // Good — each unit has a single reason to change
 function validateUser(data) {
-  if (!data.email) throw new Error('email required')
+  if (!data.email) throw new Error('email required');
 }
 function normalizeUser(data) {
-  return { ...data, email: data.email.trim().toLowerCase() }
+  return { ...data, email: data.email.trim().toLowerCase() };
 }
 async function createUser(data) {
-  validateUser(data)
-  const user = normalizeUser(data)
-  await db.users.insert(user)
-  await notifyWelcome(user.email)
-  return user
+  validateUser(data);
+  const user = normalizeUser(data);
+  await db.users.insert(user);
+  await notifyWelcome(user.email);
+  return user;
 }
 ```
 
@@ -143,19 +143,22 @@ Ship the simplest solution that solves the current problem. No extra layers, hoo
 
 ```js
 // Bad — configurability nobody asked for, added "just in case"
-function formatPrice(value, { currency = 'USD', locale = 'en-US', showSymbol = true, roundingStrategy = 'nearest' } = {}) {
+function formatPrice(
+  value,
+  { currency = 'USD', locale = 'en-US', showSymbol = true, roundingStrategy = 'nearest' } = {},
+) {
   // ...unneeded logic for a single real use case
 }
 
 // Good — solves the current problem, nothing more
 function formatPrice(value) {
-  return `$${value.toFixed(2)}`
+  return `$${value.toFixed(2)}`;
 }
 ```
 
 ### YAGNI (You Aren't Gonna Need It)
 
-Build only what the current requirement needs. Don't add fields, params, branches, or abstractions for a future case that hasn't arrived. This differs from KISS: KISS is about keeping the *chosen* solution simple; YAGNI is about not building things nobody asked for yet.
+Build only what the current requirement needs. Don't add fields, params, branches, or abstractions for a future case that hasn't arrived. This differs from KISS: KISS is about keeping the _chosen_ solution simple; YAGNI is about not building things nobody asked for yet.
 
 ```js
 // Bad — speculative support for a case that doesn't exist yet
@@ -165,7 +168,7 @@ function createInvoice(order, { supportsRecurring = false, supportsMultiCurrency
 
 // Good — build for the requirement that actually exists
 function createInvoice(order) {
-  return { total: order.total, items: order.items }
+  return { total: order.total, items: order.items };
 }
 ```
 
@@ -176,19 +179,25 @@ Prefer composing small, focused units (functions, objects, mixins) over deep inh
 ```js
 // Bad — inheritance forces unrelated behavior onto every subclass
 class Animal {
-  makeSound() { throw new Error('not implemented') }
-  fly() { throw new Error('not implemented') }
+  makeSound() {
+    throw new Error('not implemented');
+  }
+  fly() {
+    throw new Error('not implemented');
+  }
 }
 class Dog extends Animal {
-  makeSound() { return 'Woof' }
+  makeSound() {
+    return 'Woof';
+  }
   // forced to inherit `fly`, which makes no sense for a Dog
 }
 
 // Good — compose only the behaviors that apply
-const canBark = { makeSound: () => 'Woof' }
-const canFly = { fly: () => 'Flying' }
-const dog = { ...canBark }
-const bird = { ...canBark, ...canFly }
+const canBark = { makeSound: () => 'Woof' };
+const canFly = { fly: () => 'Flying' };
+const dog = { ...canBark };
+const bird = { ...canBark, ...canFly };
 ```
 
 ### Law of Demeter (don't talk to strangers)
@@ -198,12 +207,12 @@ A unit should only interact with its immediate collaborators, not reach through 
 ```js
 // Bad — reaches through three levels of internal structure
 function getCityName(user) {
-  return user.address.city.name
+  return user.address.city.name;
 }
 
 // Good — ask the object for what you need, let it own its structure
 function getCityName(user) {
-  return user.getCityName()
+  return user.getCityName();
 }
 ```
 
@@ -214,16 +223,16 @@ A function either **does** something (command, causes a side effect) or **return
 ```js
 // Bad — returns a value AND causes a side effect
 function getNextId(counter) {
-  counter.value++ // side effect hidden inside a "getter"
-  return counter.value
+  counter.value++; // side effect hidden inside a "getter"
+  return counter.value;
 }
 
 // Good — separate the query from the command
 function peekNextId(counter) {
-  return counter.value + 1
+  return counter.value + 1;
 }
 function incrementCounter(counter) {
-  counter.value++
+  counter.value++;
 }
 ```
 
@@ -235,18 +244,18 @@ Let errors surface with context instead of swallowing them. An empty or generic 
 // Bad — swallows the error, no context, execution continues as if nothing happened
 async function loadUser(id) {
   try {
-    return await api.getUser(id)
+    return await api.getUser(id);
   } catch (e) {
-    return null // caller has no idea a failure occurred
+    return null; // caller has no idea a failure occurred
   }
 }
 
 // Good — the error surfaces with context, caller decides how to handle it
 async function loadUser(id) {
   try {
-    return await api.getUser(id)
+    return await api.getUser(id);
   } catch (e) {
-    throw new Error(`Failed to load user ${id}: ${e.message}`, { cause: e })
+    throw new Error(`Failed to load user ${id}: ${e.message}`, { cause: e });
   }
 }
 ```
@@ -258,13 +267,13 @@ Prefer creating new values over mutating existing ones, especially for data pass
 ```js
 // Bad — mutates the input, callers get a surprise side effect
 function addItem(cart, item) {
-  cart.items.push(item)
-  return cart
+  cart.items.push(item);
+  return cart;
 }
 
 // Good — returns a new value, caller's original data stays untouched
 function addItem(cart, item) {
-  return { ...cart, items: [...cart.items, item] }
+  return { ...cart, items: [...cart.items, item] };
 }
 ```
 
@@ -275,15 +284,15 @@ Pick one convention and apply it consistently: e.g. `undefined` for "not yet set
 ```js
 // Bad — null is overloaded to mean three different things
 function getDiscount(user) {
-  if (!user) return null // no user
-  if (!user.plan) return null // no plan
-  if (user.plan.discount === 0) return null // legitimately zero discount
+  if (!user) return null; // no user
+  if (!user.plan) return null; // no plan
+  if (user.plan.discount === 0) return null; // legitimately zero discount
 }
 
 // Good — each case is explicit, zero is a real value
 function getDiscount(user) {
-  if (!user || !user.plan) return 0
-  return user.plan.discount
+  if (!user || !user.plan) return 0;
+  return user.plan.discount;
 }
 ```
 
@@ -294,12 +303,12 @@ Code that's easy to test is usually well-designed: side effects are isolated, de
 ```js
 // Bad — hardcoded dependency, can't test without hitting the real clock/API
 function isSubscriptionExpired(subscription) {
-  return subscription.expiresAt < new Date()
+  return subscription.expiresAt < new Date();
 }
 
 // Good — dependency is injected, trivial to test with a fixed date
 function isSubscriptionExpired(subscription, now = new Date()) {
-  return subscription.expiresAt < now
+  return subscription.expiresAt < now;
 }
 ```
 
@@ -309,15 +318,15 @@ Inner layers (domain/business logic) must not depend on outer layers (frameworks
 
 ```js
 // Bad — domain logic imports directly from an infrastructure detail
-import { MysqlConnection } from '../infra/mysql'
+import { MysqlConnection } from '../infra/mysql';
 function calculateInvoiceTotal(invoiceId) {
-  const invoice = new MysqlConnection().query('SELECT * FROM invoices WHERE id = ?', [invoiceId])
-  return invoice.items.reduce((sum, item) => sum + item.price, 0)
+  const invoice = new MysqlConnection().query('SELECT * FROM invoices WHERE id = ?', [invoiceId]);
+  return invoice.items.reduce((sum, item) => sum + item.price, 0);
 }
 
 // Good — domain logic depends only on the shape of the data, not its source
 function calculateInvoiceTotal(invoice) {
-  return invoice.items.reduce((sum, item) => sum + item.price, 0)
+  return invoice.items.reduce((sum, item) => sum + item.price, 0);
 }
 ```
 
@@ -328,13 +337,13 @@ Variables, parameters, functions, and types must say what they hold or do. Prefe
 ```js
 // Bad — vague names that hide the domain meaning
 function process(data) {
-  const temp = data.filter(x => x.val > 0)
-  return temp
+  const temp = data.filter((x) => x.val > 0);
+  return temp;
 }
 
 // Good — names reveal role and domain meaning
 function getActiveSubscriptions(subscriptions) {
-  return subscriptions.filter(subscription => subscription.remainingDays > 0)
+  return subscriptions.filter((subscription) => subscription.remainingDays > 0);
 }
 ```
 
@@ -347,16 +356,16 @@ Do not leave comments that add no value. Prefer clear names and structure so the
 ```ts
 // Bad — narrates the obvious
 // increment the counter by 1
-counter++
+counter++;
 
 // Bad — restates what the name already says
 // get the user by id
-const user = getUserById(id)
+const user = getUserById(id);
 
 // Good — explains a non-obvious trade-off
 // We poll instead of using a webhook because the provider doesn't
 // guarantee single delivery; downstream dedupe would cost more than polling.
-setInterval(checkPaymentStatus, 5000)
+setInterval(checkPaymentStatus, 5000);
 
 // Good — warns of a hazard the name can't carry
 // WARNING: this endpoint is only idempotent if `externalId` comes from
@@ -371,17 +380,23 @@ Do not hard-code domain or protocol literals inline (status values, roles, path 
 
 ```js
 // Bad — domain literals scattered across the codebase
-if (order.status === 'pending_payment') { /* ... */ }
+if (order.status === 'pending_payment') {
+  /* ... */
+}
 // ...elsewhere, in a different file
-if (order.status === 'pending_payment') { /* ... */ }
+if (order.status === 'pending_payment') {
+  /* ... */
+}
 
 // Good — named once, reused everywhere
 const ORDER_STATUS = {
   PENDING_PAYMENT: 'pending_payment',
   PAID: 'paid',
   CANCELLED: 'cancelled',
+};
+if (order.status === ORDER_STATUS.PENDING_PAYMENT) {
+  /* ... */
 }
-if (order.status === ORDER_STATUS.PENDING_PAYMENT) { /* ... */ }
 ```
 
 ### SOLID
@@ -392,15 +407,17 @@ Apply with judgment. Favor single responsibility and inversion of dependencies (
 // Bad — the use case depends directly on a concrete implementation
 class SendWelcomeEmail {
   async execute(user) {
-    await new SmtpMailer().send(user.email, 'welcome') // coupled to SMTP
+    await new SmtpMailer().send(user.email, 'welcome'); // coupled to SMTP
   }
 }
 
 // Good — depends on an interface (port), not the implementation
 class SendWelcomeEmail {
-  constructor(mailer) { this.mailer = mailer } // mailer implements MailerPort
+  constructor(mailer) {
+    this.mailer = mailer;
+  } // mailer implements MailerPort
   async execute(user) {
-    await this.mailer.send(user.email, 'welcome')
+    await this.mailer.send(user.email, 'welcome');
   }
 }
 ```
@@ -437,10 +454,10 @@ class ProfileService {
 }
 ```
 
-| Do                                                                                  | Don't                                                       |
-| ------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Parse once at the edge; pass a typed command/query inward                            | Re-parse or re-check the same rules in every layer         |
-| One validation approach per input                                                    | Two mechanisms validating the same body/query               |
-| Keep docs/interface metadata separate from the validation contract when both exist   | Duplicate the same type/range/required rules in two places |
+| Do                                                                                 | Don't                                                      |
+| ---------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Parse once at the edge; pass a typed command/query inward                          | Re-parse or re-check the same rules in every layer         |
+| One validation approach per input                                                  | Two mechanisms validating the same body/query              |
+| Keep docs/interface metadata separate from the validation contract when both exist | Duplicate the same type/range/required rules in two places |
 
 When in doubt: **fail fast, keep it flat, keep it small.**

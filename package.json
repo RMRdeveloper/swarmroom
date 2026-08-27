@@ -18,7 +18,14 @@
     "sync:skills": "node scripts/sync-skills.mjs",
     "sync:skills:check": "node scripts/sync-skills.mjs --check",
     "types": "tsc --noEmit",
-    "test": "node --test 'src/**/*.test.ts'"
+    "test": "node --test 'src/**/*.test.ts'",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:comments": "node scripts/check-comments.mjs --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'",
+    "check": "npm run types && npm run lint && npm run format:check && npm test && npm run check:comments",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=20"
@@ -73,8 +80,26 @@
     "picocolors": "^1.1.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@types/node": "^22.20.1",
     "esbuild": "^0.25.0",
-    "typescript": "^5.6.0"
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.5",
+    "eslint-plugin-import-x": "^4.17.1",
+    "eslint-plugin-unicorn": "^65.0.1",
+    "globals": "^17.11.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.68.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,js,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "**/*.{json,md,yml,yaml}": "prettier --write --ignore-unknown"
   }
 }

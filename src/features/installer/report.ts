@@ -1,8 +1,9 @@
-import { relative } from 'node:path';
+import path from 'node:path';
 
-import type { Scope, Target } from '../domain/targets.ts';
-import type { FileStatus, InstallReport, InstalledFile } from '../io/installer.ts';
-import * as style from './style.ts';
+import * as style from '../../shared/kernel/style.ts';
+
+import type { FileStatus, InstallReport, InstalledFile } from './installer.ts';
+import type { Scope, Target } from './targets.ts';
 
 const STATUS_ORDER: readonly FileStatus[] = ['new', 'updated', 'skipped'];
 
@@ -17,29 +18,29 @@ function countByStatus(files: readonly InstalledFile[]): Record<FileStatus, numb
   return counts;
 }
 
-/** Prefer a path relative to destRoot when it stays under that root. */
 export function displayPath(dest: string, destRoot: string): string {
-  const rel = relative(destRoot, dest);
+  const rel = path.relative(destRoot, dest);
   if (rel === '' || rel.startsWith('..') || rel.startsWith('/')) return dest;
   return rel;
 }
 
-/** Relative to destRoot, else skillsDestRoot, else absolute. */
-export function displayPathForReport(dest: string, destRoot: string, skillsDestRoot?: string): string {
+export function displayPathForReport(
+  dest: string,
+  destRoot: string,
+  skillsDestRoot?: string,
+): string {
   const underAgents = displayPath(dest, destRoot);
   if (underAgents !== dest) return underAgents;
   if (skillsDestRoot === undefined) return dest;
   return displayPath(dest, skillsDestRoot);
 }
 
-/** Status count lines; hides zero counts. */
 export function formatStatusCounts(counts: Record<FileStatus, number>): readonly string[] {
   return STATUS_ORDER.filter((s) => counts[s] > 0).map(
-    (s) => `  ${style.status(s, `${counts[s]} ${s}`)}`,
+    (s) => `  ${style.status(s, `${String(counts[s])} ${s}`)}`,
   );
 }
 
-/** Per-file lines for verbose mode: `status  path`. */
 export function formatFileLines(
   files: readonly InstalledFile[],
   destRoot: string,
@@ -51,7 +52,6 @@ export function formatFileLines(
   });
 }
 
-/** Pure body lines for a target report (no header). */
 export function formatTargetBody(report: InstallReport, verbose: boolean): readonly string[] {
   const counts = countByStatus(report.files);
   const lines = [...formatStatusCounts(counts)];
@@ -59,7 +59,6 @@ export function formatTargetBody(report: InstallReport, verbose: boolean): reado
   return lines;
 }
 
-/** Pure body lines for a single-file artifact report. */
 export function formatArtifactBody(
   dest: string,
   status: FileStatus,
@@ -76,7 +75,13 @@ export function formatArtifactBody(
   return lines;
 }
 
-/** Opening line once: product version + install scope. */
+export function formatArtifactsBody(
+  files: readonly InstalledFile[],
+  verbose: boolean,
+): readonly string[] {
+  return files.flatMap((file) => formatArtifactBody(file.dest, file.status, verbose));
+}
+
 export function printOpening(version: string, scope: Scope, dir: string): void {
   console.log(style.muted(`swarmroom v${version}`));
   if (scope === 'global') {
@@ -86,11 +91,9 @@ export function printOpening(version: string, scope: Scope, dir: string): void {
   }
 }
 
-/** Per-target summary; quiet no-ops. Default hides zero counts; verbose lists files. */
 export function printTargetReport(report: InstallReport, options: ReportOptions): void {
   if (options.quiet) return;
-  const split =
-    report.skillsDestRoot !== undefined && report.skillsDestRoot !== report.destRoot;
+  const split = report.skillsDestRoot !== undefined && report.skillsDestRoot !== report.destRoot;
   const header = split
     ? `\n${report.target.label} → ${report.destRoot} + ${report.skillsDestRoot}`
     : `\n${report.target.label} → ${report.destRoot}`;
@@ -100,7 +103,6 @@ export function printTargetReport(report: InstallReport, options: ReportOptions)
   }
 }
 
-/** Single-file artifact summary (e.g. CODING_GUIDELINES.md). Quiet no-ops. */
 export function printArtifactReport(
   label: string,
   dest: string,
@@ -114,7 +116,6 @@ export function printArtifactReport(
   }
 }
 
-/** Closing next-step hint after all installs. */
 export function printClosing(chosen: readonly Target[]): void {
   const labels = chosen.map((t) => t.label).join(', ');
   console.log(`\nDone. Restart ${labels} to load the agents.`);

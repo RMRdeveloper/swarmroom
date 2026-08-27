@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { skills } from '../domain/pipeline.ts';
-import { targets } from '../domain/targets.ts';
+import { targets } from '../features/installer/targets.ts';
+import { skills } from '../shared/kernel/pipeline.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pipelineSkill = readFileSync(join(here, 'skills', 'sw-pipeline', 'SKILL.md'), 'utf8');
@@ -69,7 +69,7 @@ describe('sw-pipeline skill', () => {
     );
     for (const target of targets) {
       const rewritten = target.rewriteSkill(pipelineSkill);
-      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
+      assert.ok(!rewritten.includes('\n'.repeat(3)), `${target.id}: triple newlines`);
       assert.ok(rewritten.includes('sw-implementer'), `${target.id}: lost implementer`);
       assert.ok(rewritten.includes(FINDING_LINE), `${target.id}: lost FINDING line`);
       if (target.id === 'cursor') {
@@ -173,7 +173,7 @@ describe('sw-spec skill', () => {
   it('survives rewriteSkill for every target', () => {
     for (const target of targets) {
       const rewritten = target.rewriteSkill(specSkill);
-      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
+      assert.ok(!rewritten.includes('\n'.repeat(3)), `${target.id}: triple newlines`);
       assert.ok(rewritten.includes('docs/specs/'), `${target.id}: lost docs/specs`);
       assert.ok(rewritten.includes('sw-pipeline'), `${target.id}: lost handoff`);
       if (target.id === 'cursor') {
@@ -234,9 +234,15 @@ describe('sw-critic skill', () => {
     const criticSkill = readFileSync(join(here, 'skills', 'sw-critic', 'SKILL.md'), 'utf8');
     for (const target of targets) {
       const rewritten = target.rewriteSkill(criticSkill);
-      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
-      assert.ok(rewritten.includes('FINDING <N> | <Critical|High|Medium|Low>'), `${target.id}: lost FINDING line`);
-      assert.ok(rewritten.includes('sw-critic') || rewritten.includes('Red Team'), `${target.id}: lost critic identity`);
+      assert.ok(!rewritten.includes('\n'.repeat(3)), `${target.id}: triple newlines`);
+      assert.ok(
+        rewritten.includes('FINDING <N> | <Critical|High|Medium|Low>'),
+        `${target.id}: lost FINDING line`,
+      );
+      assert.ok(
+        rewritten.includes('sw-critic') || rewritten.includes('Red Team'),
+        `${target.id}: lost critic identity`,
+      );
       if (target.id === 'cursor') {
         assert.match(rewritten, /^argument-hint:/m);
         assert.match(rewritten, /^disable-model-invocation:/m);
@@ -292,7 +298,7 @@ describe('sw-transcribe-audio skill', () => {
   it('How to run contains exactly the canonical uv run --with invoke', () => {
     const howToRun = markdownSection(transcribeSkill, '## How to run');
     assert.ok(howToRun.includes('uv run --with faster-whisper python3 transcribe.py'));
-    const fenced = howToRun.match(/```\n([\s\S]*?)\n```/);
+    const fenced = /```\n([\s\S]*?)\n```/.exec(howToRun);
     assert.ok(fenced?.[1], 'missing How to run fenced command');
     assert.equal(fenced[1], 'uv run --with faster-whisper python3 transcribe.py <audio_path>');
     assert.ok(
@@ -314,7 +320,7 @@ describe('sw-transcribe-audio skill', () => {
     );
     for (const target of targets) {
       const rewritten = target.rewriteSkill(transcribeSkill);
-      assert.ok(!rewritten.includes('\n\n\n'), `${target.id}: triple newlines`);
+      assert.ok(!rewritten.includes('\n'.repeat(3)), `${target.id}: triple newlines`);
       assert.ok(rewritten.includes('uv'), `${target.id}: lost uv`);
       assert.ok(
         rewritten.includes('externally-managed-environment'),
@@ -355,11 +361,17 @@ describe('sw-transcribe-audio skill', () => {
       ),
       'ImportError must name the canonical invoke',
     );
-    assert.ok(!transcribePy.includes('uv pip install'), 'ImportError must not suggest uv pip install');
+    assert.ok(
+      !transcribePy.includes('uv pip install'),
+      'ImportError must not suggest uv pip install',
+    );
   });
 
   it('usage string is the canonical uv run --with invoke', () => {
-    assert.ok(transcribePy.includes('usage: uv run --with faster-whisper python3 transcribe.py <audio_path>'));
+    assert.ok(
+      transcribePy.includes(
+        'usage: uv run --with faster-whisper python3 transcribe.py <audio_path>',
+      ),
+    );
   });
 });
-

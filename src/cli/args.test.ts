@@ -135,26 +135,64 @@ describe('parseArgs', () => {
     const parsed = parseArgs([]);
     assert.equal(parsed.kind, 'ok');
     if (parsed.kind !== 'ok') return;
-    const ids = parsed.options.chosen.map((t) => t.id);
-    assert.ok(ids.includes('codex'));
-    assert.ok(ids.includes('cursor'));
+    const ids = new Set(parsed.options.chosen.map((t) => t.id));
+    assert.ok(ids.has('codex'));
+    assert.ok(ids.has('cursor'));
   });
 
   it('parses task subcommands and their values', () => {
     const ready = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'ready', '--dir', '/tmp/project']);
-    assert.deepEqual(ready, { kind: 'tasks', command: { kind: 'ready' }, dir: '/tmp/project', tasksFile: 'r.tasks' });
+    assert.deepEqual(ready, {
+      kind: 'tasks',
+      command: { kind: 'ready' },
+      dir: '/tmp/project',
+      tasksFile: 'r.tasks',
+    });
 
-    const set = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'set', 'T1', 'failed', '--error', 'boom']);
-    assert.deepEqual(set, { kind: 'tasks', command: { kind: 'set', id: 'T1', status: 'failed', error: 'boom' }, dir: process.cwd(), tasksFile: 'r.tasks' });
+    const set = parseArgs([
+      'tasks',
+      '--tasks-file',
+      'r.tasks',
+      'set',
+      'T1',
+      'failed',
+      '--error',
+      'boom',
+    ]);
+    assert.deepEqual(set, {
+      kind: 'tasks',
+      command: { kind: 'set', id: 'T1', status: 'failed', error: 'boom' },
+      dir: process.cwd(),
+      tasksFile: 'r.tasks',
+    });
 
-    const replan = parseArgs(['tasks', '--tasks-file', 'r.tasks', 'replan', '--file', 'proposal.tasks']);
+    const replan = parseArgs([
+      'tasks',
+      '--tasks-file',
+      'r.tasks',
+      'replan',
+      '--file',
+      'proposal.tasks',
+    ]);
     assert.equal(replan.kind, 'tasks');
-    if (replan.kind === 'tasks') assert.deepEqual(replan.command, { kind: 'replan', file: 'proposal.tasks' });
+    if (replan.kind === 'tasks')
+      assert.deepEqual(replan.command, { kind: 'replan', file: 'proposal.tasks' });
   });
 
   it('rejects ambiguous task flags and incompatible metadata', () => {
     for (const argv of [
-      ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'failed', '--result', 'done', '--error', 'bad'],
+      [
+        'tasks',
+        '--tasks-file',
+        'a.tasks',
+        'set',
+        'T1',
+        'failed',
+        '--result',
+        'done',
+        '--error',
+        'bad',
+      ],
       ['tasks', '--tasks-file', 'a.tasks', 'replan', '--file', 'a.tasks', '--file', 'b.tasks'],
       ['tasks', '--tasks-file', 'a.tasks', 'set', 'T1', 'unknown'],
       ['tasks', '--tasks-file', 'a.tasks', '--tasks-file', 'b.tasks', 'status'],

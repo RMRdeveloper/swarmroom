@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-08-27
+
+### Added
+
+- **Feature-based reorg:** `src/shared/kernel/{pipeline,tasks-format,style,package-root}.ts` extracts shared kernel; `src/features/tasks/{tasks,scheduler,task-store}.ts`, `src/features/tasks-cli/tasks.ts`, `src/features/installer/{targets,installer,report,prompts}.ts` isolate feature verticals with shims removed; `AGENTS.md` wiring updated.
+- **Comment hygiene:** `CODING_GUIDELINES.md` now enforced via deterministic gate `scripts/check-comments.mjs` + artifact `src/assets/artifacts/check-comments.mjs` (builtin-only, 0 deps, JSDoc-only `/** */`, allowlist `eslint,global`, `TODO` without `#123` fails, parser hunk for `git diff -U0 --staged`). Wired to `.husky/pre-commit` and `npm run check:comments` / `npm run check`.
+- **Artifact install:** `src/features/installer/installer.ts` `installArtifacts` / `artifactsPresent` whitelist `['check-comments.mjs']` copies `src/assets/artifacts/check-comments.mjs` to `.swarmroom/artifacts/check-comments.mjs` (project scope, `overwrite` flag, fail-fast, gitignored like tasks); `src/cli.ts:93` wires project-scope install with `printArtifactReport`.
+- `src/assets/agents/{sw-code-reviewer,sw-verifier,sw-fixer,sw-implementer}.md` — checklist hygiene outside Baseline (JSDoc-only, aggregated `FINDING 1 | Medium | file:line, … | Comments`, `sw-fixer` auto-converts `//` → `/** */` in 1 pass).
+- `src/cli/args.ts` now imports `src/features/*` / `src/shared/kernel/*` (no `src/domain`/`src/io`).
+
+### Changed
+
+- `src/cli/args.ts` tests and `src/assets/{agents,skills}.test.ts` import `src/shared/kernel/pipeline` / `src/features/installer/targets`.
+- Empty `src/domain/` and `src/io/` removed; `src/cli/{tasks,report,prompts,style}.ts` removed (shims deleted after migration).
+- `eslint.config.js` — override for `src/assets/artifacts/**/*.mjs` + `scripts/check-comments.mjs` (disableTypeChecked + unicorn parity), `.swarmroom` kept ignored.
+- `package.json:9` still `["dist","src/assets","skills"]` (scripts not published via `files` before; now artifact is `src/assets/artifacts/check-comments.mjs` and is published, agnostic 0 deps).
+- Direct `//` line-comment hygiene enforced; remaining `/** JSDoc */` for non-obvious intent only.
+
+### Fixed
+
+- `.swarmroom/artifacts` sync staleness and empty `catch { diff='' }` swallowing `git diff` failures now `throw new Error(...,{cause})`.
+
 ## [2.2.0] - 2026-08-26
 
 ### Breaking

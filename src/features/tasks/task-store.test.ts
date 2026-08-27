@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
-import { createGraph, type Task } from '../domain/tasks.ts';
 import {
   parseTaskGraph,
   readTaskGraph,
@@ -12,6 +11,7 @@ import {
   taskGraphPath,
   writeTaskGraph,
 } from './task-store.ts';
+import { createGraph, type Task } from './tasks.ts';
 
 function task(partial: Partial<Task> & Pick<Task, 'id'>): Task {
   return {
@@ -45,22 +45,6 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
   });
 
   it('round-trips todos los campos', () => {
-    const graph = createGraph([
-      task({
-        id: 'T1',
-        title: 'Full',
-        description: 'Desc full',
-        status: 'running',
-        dependsOn: [],
-        agent: 'sw-implementer',
-        files: ['a.ts', 'b.ts'],
-        acceptance: ['tests pass', 'no magic'],
-        result: 'done',
-        error: 'oops',
-        attempts: 2,
-      }),
-    ]);
-    // result and error coexist in serialization, but Task type allows — just test round-trip with one
     const g2 = createGraph([
       task({
         id: 'T1',
@@ -85,7 +69,10 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
   });
 
   it('rechaza bloque malformado (línea sin ": ")', () => {
-    assert.throws(() => parseTaskGraph('id T1\nstatus: pending\ndependsOn: -\ntitle: A\n'), /bloque 1 línea 1: línea malformada/);
+    assert.throws(
+      () => parseTaskGraph('id T1\nstatus: pending\ndependsOn: -\ntitle: A\n'),
+      /bloque 1 línea 1: línea malformada/,
+    );
   });
 
   it('rechaza campo desconocido', () => {
@@ -110,8 +97,14 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
   });
 
   it('rechaza falta de campo requerido', () => {
-    assert.throws(() => parseTaskGraph('id: T1\nstatus: pending\ntitle: A\n'), /bloque 1: falta campo "dependsOn"/);
-    assert.throws(() => parseTaskGraph('status: pending\ndependsOn: -\ntitle: A\n'), /bloque 1: falta campo "id"/);
+    assert.throws(
+      () => parseTaskGraph('id: T1\nstatus: pending\ntitle: A\n'),
+      /bloque 1: falta campo "dependsOn"/,
+    );
+    assert.throws(
+      () => parseTaskGraph('status: pending\ndependsOn: -\ntitle: A\n'),
+      /bloque 1: falta campo "id"/,
+    );
   });
 
   it('rechaza dependsOn con elemento vacío', () => {
@@ -149,7 +142,8 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
   });
 
   it('tolerates extra blank lines y trailing newline', () => {
-    const raw = '\n\nid: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\n\nid: T2\nstatus: pending\ndependsOn: T1\ntitle: B\n\n';
+    const raw =
+      '\n\nid: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\n\nid: T2\nstatus: pending\ndependsOn: T1\ntitle: B\n\n';
     const graph = parseTaskGraph(raw);
     assert.equal(graph.tasks.length, 2);
     assert.equal(graph.tasks[1]?.dependsOn[0], 'T1');
@@ -181,13 +175,17 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
   });
 
   it('reporta bloque correcto sin invalidar otros', () => {
-    const raw = 'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T2\nstatus: bogus\ndependsOn: -\ntitle: B\n';
+    const raw =
+      'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T2\nstatus: bogus\ndependsOn: -\ntitle: B\n';
     assert.throws(() => parseTaskGraph(raw), /bloque 2: status inválido "bogus"/);
   });
 
   it('delegates duplicados/ciclos/deps inexistentes a createGraph', () => {
     assert.throws(
-      () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T1\nstatus: pending\ndependsOn: -\ntitle: B\n'),
+      () =>
+        parseTaskGraph(
+          'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T1\nstatus: pending\ndependsOn: -\ntitle: B\n',
+        ),
       /duplicate task id: T1/,
     );
     assert.throws(

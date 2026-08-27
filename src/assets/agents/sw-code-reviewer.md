@@ -46,6 +46,8 @@ One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo s
 
 Review the given diff/PR against the baseline standards above and any stricter rule the repo's own docs impose. Cite each violation with `file:line`. Name the violated rule using the baseline or guidelines wording. Do not flag style preferences that are not backed by a rule. When the repo documents repo-specific rules (utility ownership, shared-package consumption, migration or data-loss rules, and the like), check those too.
 
+- Comments hygiene (JSDoc-only): flag any `//` (except `// eslint-*`/`// global`) or `/*` not `/**` that is narrative/restatement where name/structure already clear (quick-test: if deleting it leaves code just as clear); accept only `/** JSDoc */` on exported public API or `/** WARNING:`/`/** HACK: #123` hazard with non-obvious trade-off; stale `TODO` without `#123` is a violation. Aggregate all such lines in touched files into one `FINDING | Medium | file:line, … | Comments | …`. To make this deterministic, run `node scripts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'` (fallback `npm run check:comments` for full scan) and treat its `FINDING 1 | Medium | … | Comments` output as authoritative; if no `scripts/check-comments.mjs` present, apply the same regex manually on the diff.
+
 ## Findings contract (one line per finding)
 
 ```

@@ -61,9 +61,9 @@ describe('targets', () => {
     assert.match(toml, /^developer_instructions = '''/m);
 
     const close = SAMPLE_AGENT.indexOf('\n---\n', 3);
-    assert.ok(close >= 0);
+    assert.ok(close !== -1);
     const sourceBody = SAMPLE_AGENT.slice(close + '\n---\n'.length).trim();
-    const encoded = toml.match(/developer_instructions = '''([\s\S]*)'''/);
+    const encoded = /developer_instructions = '''([\s\S]*)'''/.exec(toml);
     assert.ok(encoded);
     assert.equal(encoded[1], sourceBody);
 

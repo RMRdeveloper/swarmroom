@@ -61,27 +61,34 @@ Template (omit any section that would be empty):
 # <Title>
 
 ## Context
+
 <why this exists>
 
 ## Goal
+
 <what the result must do>
 
 ## Non-goals
+
 <what is explicitly out of scope>
 
 ## Requirements
+
 - <one requirement per bullet>
 
 ## Acceptance Criteria
+
 - **Scenario:** <name>
   - Given <precondition>
   - When <action>
   - Then <observable result>
 
 ## Constraints
+
 - <technical, process, or repo-doc constraint>
 
 ## Open Questions
+
 - <unresolved non-blocking decisions, if any>
 ```
 

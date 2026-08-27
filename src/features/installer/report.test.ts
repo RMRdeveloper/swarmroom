@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
 import { join } from 'node:path';
+import { describe, it } from 'node:test';
 
-import type { Target } from '../domain/targets.ts';
-import type { InstallReport } from '../io/installer.ts';
+import type { InstallReport } from './installer.ts';
 import {
   displayPath,
   formatArtifactBody,
@@ -12,6 +11,7 @@ import {
   printArtifactReport,
   printTargetReport,
 } from './report.ts';
+import type { Target } from './targets.ts';
 
 const fakeTarget = {
   id: 'cursor',
@@ -42,7 +42,7 @@ describe('report formatters', () => {
   it('hides zero status counts', () => {
     const lines = formatStatusCounts({ new: 2, updated: 0, skipped: 1 });
     assert.deepEqual(
-      lines.map((l) => l.replace(/\x1b\[[0-9;]*m/g, '')),
+      lines.map((l) => l.replaceAll(/\u001B\[[0-9;]*m/g, '')),
       ['  2 new', '  1 skipped'],
     );
   });
@@ -57,7 +57,7 @@ describe('report formatters', () => {
         { dest: join(destRoot, 'agents', 'sw-fixer.md'), status: 'skipped' },
       ],
     };
-    const body = formatTargetBody(report, true).map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+    const body = formatTargetBody(report, true).map((l) => l.replaceAll(/\u001B\[[0-9;]*m/g, ''));
     assert.ok(body.some((l) => l.includes('2 new') || l.includes('1 new')));
     assert.ok(body.some((l) => /new\s+agents\/sw-planner\.md/.test(l)));
     assert.ok(body.some((l) => /skipped\s+agents\/sw-fixer\.md/.test(l)));
@@ -66,7 +66,7 @@ describe('report formatters', () => {
   it('formatArtifactBody uses dest when verbose', () => {
     const dest = '/proj/CODING_GUIDELINES.md';
     const body = formatArtifactBody(dest, 'updated', true).map((l) =>
-      l.replace(/\x1b\[[0-9;]*m/g, ''),
+      l.replaceAll(/\u001B\[[0-9;]*m/g, ''),
     );
     assert.ok(body.some((l) => l.includes('1 updated')));
     assert.ok(body.some((l) => l.includes(dest)));
@@ -89,7 +89,7 @@ describe('report formatters', () => {
         { dest: join(skillsDestRoot, 'skills', 'sw-pipeline', 'SKILL.md'), status: 'new' },
       ],
     };
-    const body = formatTargetBody(report, true).map((l) => l.replace(/\x1b\[[0-9;]*m/g, ''));
+    const body = formatTargetBody(report, true).map((l) => l.replaceAll(/\u001B\[[0-9;]*m/g, ''));
     assert.ok(body.some((l) => /new\s+agents\/sw-planner\.toml/.test(l)));
     assert.ok(body.some((l) => /new\s+skills\/sw-pipeline\/SKILL\.md/.test(l)));
     assert.ok(!body.some((l) => l.includes('../.agents')));

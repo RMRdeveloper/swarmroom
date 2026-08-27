@@ -1,22 +1,30 @@
 #!/usr/bin/env node
+import { homedir } from 'node:os';
+
 import { packageVersion, parseArgs, formatHelp } from './cli/args.ts';
-import { confirm, close, selectMultiple } from './cli/prompts.ts';
-import { printArtifactReport, printClosing, printOpening, printTargetReport } from './cli/report.ts';
-import * as style from './cli/style.ts';
-import { runTasks } from './cli/tasks.ts';
-import { scopeRoot, scopeSkillsRoot } from './domain/targets.ts';
 import {
   anyPresent,
+  artifactsPresent,
   guidelinesFileName,
   guidelinesPresent,
   install,
+  installArtifacts,
   installGuidelines,
-} from './io/installer.ts';
-import { homedir } from 'node:os';
+} from './features/installer/installer.ts';
+import { confirm, close, selectMultiple } from './features/installer/prompts.ts';
+import {
+  printArtifactReport,
+  printClosing,
+  printOpening,
+  printTargetReport,
+} from './features/installer/report.ts';
+import { scopeRoot, scopeSkillsRoot } from './features/installer/targets.ts';
+import { runTasks } from './features/tasks-cli/tasks.ts';
+import * as style from './shared/kernel/style.ts';
 
 const TTY = process.stdout.isTTY;
+const CHECK_COMMENTS_ARTIFACT = '.swarmroom/artifacts/check-comments.mjs';
 
-/** Display path for confirms; shortens `$HOME` to `~`. */
 function pathHint(root: string): string {
   const home = homedir();
   return root.startsWith(home) ? `~${root.slice(home.length)}` : root;
@@ -48,13 +56,20 @@ async function main(): Promise<void> {
       return;
     }
 
-    let { chosen, scope, dir, force, verbose, quiet } = parsed.options;
+    let chosen = parsed.options.chosen;
+    let scope = parsed.options.scope;
+    const dir = parsed.options.dir;
+    const force = parsed.options.force;
+    const verbose = parsed.options.verbose;
+    const quiet = parsed.options.quiet;
     const version = packageVersion();
     const reportOpts = { verbose, quiet };
 
     if (TTY && !parsed.options.explicit) {
       chosen = await selectMultiple('Pick the editors to install into:', chosen);
-      scope = (await confirm('Install into the global home directory?', false)) ? 'global' : 'project';
+      scope = (await confirm('Install into the global home directory?', false))
+        ? 'global'
+        : 'project';
     }
 
     printOpening(version, scope, dir);
@@ -89,11 +104,29 @@ async function main(): Promise<void> {
           )));
       const file = await installGuidelines(dir, overwrite);
       printArtifactReport(guidelinesFileName, file.dest, file.status, reportOpts);
+
+      const artifactsOverwrite =
+        force ||
+        (TTY &&
+          (await artifactsPresent(dir)) &&
+          (await confirm(
+            `Existing ${CHECK_COMMENTS_ARTIFACT} in ${pathHint(dir)} will be replaced. Continue?`,
+            true,
+          )));
+      const artifactFiles = await installArtifacts(dir, artifactsOverwrite);
+      for (const artifactFile of artifactFiles) {
+        printArtifactReport(
+          CHECK_COMMENTS_ARTIFACT,
+          artifactFile.dest,
+          artifactFile.status,
+          reportOpts,
+        );
+      }
     }
 
     printClosing(chosen);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     printError(message);
     process.exitCode = 1;
   } finally {

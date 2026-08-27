@@ -36,22 +36,27 @@ published bin needs Node ≥ 20.
 
 ## How it wires together
 
-- `src/domain/pipeline.ts` — single source of truth declaring the `sw-*` agent
+- `src/shared/kernel/pipeline.ts` — single source of truth declaring the `sw-*` agent
   names and the `skills` list. Adding an agent/skill requires updating this **and**
   dropping the matching file in `src/assets/`; targets are then handled automatically.
-- `src/domain/targets.ts` — per-editor `Target` configs (cursor|opencode|claude|codex)
+- `src/shared/kernel/tasks-format.ts` — shared `.tasks` block parsing (LINE_RE, splitList, parseBlockRecord, CANONICAL_ORDER).
+- `src/shared/kernel/style.ts` — picocolors helpers for file/task status (no outward deps).
+- `src/shared/kernel/package-root.ts` — walk up to `package.json` for assets resolution.
+- `src/features/tasks/tasks.ts` / `scheduler.ts` — pure Task Graph + ready/parallel selection (no IO).
+- `src/features/tasks/task-store.ts` — read/write `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) in a consumer project (isolated per pipeline, `--tasks-file` required).
+- `src/features/tasks-cli/tasks.ts` — adapter for `tasks` CLI commands (render, replan discrimination, humanReady).
+- `src/features/installer/targets.ts` — per-editor `Target` configs (cursor|opencode|claude|codex)
   with directory layouts and frontmatter rewrites. New editor = add a `Target` here.
   A Target can split agent vs skill roots (`skillsRoot` / `skillsGlobalBase`) and
   set `agentExt`.
-- `src/io/installer.ts` — idempotent copy of assets to target roots:
+- `src/features/installer/installer.ts` — idempotent copy of assets to target roots:
   skips existing files unless `overwrite`/`--force`; fails fast if any asset is missing.
+- `src/features/installer/report.ts` / `prompts.ts` — CLI reporting (displayPath, status counts) and interactive selection.
 - Agent/skill files in `src/assets/` carry Cursor-specific frontmatter
   (`readonly:`, `model:`, `argument-hint:`); the installer strips/rewrites it to
   `mode: subagent` for opencode/Claude, and to TOML (`name`, `description`,
   `developer_instructions`) for Codex. Keep Cursor-only lines in the assets.
-- `src/domain/tasks.ts` / `src/domain/scheduler.ts` — pure Task Graph + ready/parallel selection.
-- `src/io/task-store.ts` — read/write `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) in a consumer project (isolated per pipeline, `--tasks-file` required).
-- `src/cli.ts` — argv parsing (no framework, stdlib readline for prompts); install, or task graph status, validation, scheduling, mutation, and replanning commands.
+- `src/cli.ts` — orchestrator (install vs tasks); `src/cli/args.ts` — argv parsing (no framework, stdlib readline for prompts).
 
 ## TypeScript quirks (strict)
 

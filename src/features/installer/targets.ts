@@ -1,5 +1,5 @@
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import path from 'node:path';
 
 export type Scope = 'project' | 'global';
 export type TargetId = 'cursor' | 'opencode' | 'claude' | 'codex';
@@ -30,18 +30,16 @@ export interface Target {
 
 const TOML_LITERAL_DELIM = "'''";
 
-/** Strip tool-specific lines Cursor alone supports. */
 function dropToBase(source: string): string {
   const kept = source
     .split('\n')
     .filter((l) => !/^(readonly:|model:|argument-hint:|disable-model-invocation:)/.test(l.trim()));
   return kept
     .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
+    .replaceAll(/\n{3,}/g, '\n\n')
     .trimStart();
 }
 
-/** opencode/Claude drive agents off `mode: subagent`, not `readonly`. */
 function subagent(source: string): string {
   const lines = dropToBase(source).split('\n');
   const at = lines.findIndex((l) => l.trim().startsWith('description:'));
@@ -63,14 +61,13 @@ function requiredYamlScalar(frontmatter: string, key: string): string {
   return value;
 }
 
-/** Split markdown agent source at the closing `---` of YAML frontmatter. */
 function splitFrontmatter(source: string): { frontmatter: string; body: string } {
   const lines = source.split('\n');
   if (lines[0]?.trim() !== '---') {
     throw new Error('agent source is missing opening YAML frontmatter delimiter');
   }
   const closeAt = lines.findIndex((line, i) => i > 0 && line.trim() === '---');
-  if (closeAt < 0) {
+  if (closeAt === -1) {
     throw new Error('agent source is missing closing YAML frontmatter delimiter');
   }
   return {
@@ -82,16 +79,42 @@ function splitFrontmatter(source: string): { frontmatter: string; body: string }
 function tomlBasicString(value: string): string {
   let encoded = '';
   for (const ch of value) {
-    const code = ch.charCodeAt(0);
-    if (ch === '"') encoded += '\\"';
-    else if (ch === '\\') encoded += '\\\\';
-    else if (ch === '\b') encoded += '\\b';
-    else if (ch === '\t') encoded += '\\t';
-    else if (ch === '\n') encoded += '\\n';
-    else if (ch === '\f') encoded += '\\f';
-    else if (ch === '\r') encoded += '\\r';
-    else if (code < 0x20) encoded += `\\u${code.toString(16).padStart(4, '0')}`;
-    else encoded += ch;
+    const code = ch.codePointAt(0);
+    if (code === undefined) throw new Error('unreachable: empty string codePoint');
+
+    switch (ch) {
+      case '"': {
+        encoded += String.raw`\"`;
+        break;
+      }
+      case '\\': {
+        encoded += '\\\\';
+        break;
+      }
+      case '\b': {
+        encoded += String.raw`\b`;
+        break;
+      }
+      case '\t': {
+        encoded += String.raw`\t`;
+        break;
+      }
+      case '\n': {
+        encoded += String.raw`\n`;
+        break;
+      }
+      case '\f': {
+        encoded += String.raw`\f`;
+        break;
+      }
+      case '\r': {
+        encoded += String.raw`\r`;
+        break;
+      }
+      default: {
+        encoded += code < 0x20 ? String.raw`\u${code.toString(16).padStart(4, '0')}` : ch;
+      }
+    }
   }
   return `"${encoded}"`;
 }
@@ -105,7 +128,6 @@ function tomlLiteralString(value: string): string {
   return `${TOML_LITERAL_DELIM}${value}${TOML_LITERAL_DELIM}`;
 }
 
-/** Codex agents are TOML with name, description, and developer_instructions only. */
 function rewriteCodexAgent(source: string): string {
   const { frontmatter, body } = splitFrontmatter(source);
   const name = requiredYamlScalar(frontmatter, 'name');
@@ -126,7 +148,7 @@ export const targets: readonly Target[] = [
     agentsDir: 'agents',
     agentExt: 'md',
     skillsDir: 'skills',
-    globalBase: join(homedir(), '.cursor'),
+    globalBase: path.join(homedir(), '.cursor'),
     rewriteAgent: (s) => s,
     rewriteSkill: (s) => s,
   },
@@ -137,7 +159,7 @@ export const targets: readonly Target[] = [
     agentsDir: 'agent',
     agentExt: 'md',
     skillsDir: 'skills',
-    globalBase: join(homedir(), '.config', 'opencode'),
+    globalBase: path.join(homedir(), '.config', 'opencode'),
     rewriteAgent: subagent,
     rewriteSkill: dropToBase,
   },
@@ -148,7 +170,7 @@ export const targets: readonly Target[] = [
     agentsDir: 'agents',
     agentExt: 'md',
     skillsDir: 'skills',
-    globalBase: join(homedir(), '.claude'),
+    globalBase: path.join(homedir(), '.claude'),
     rewriteAgent: subagent,
     rewriteSkill: dropToBase,
   },
@@ -158,27 +180,24 @@ export const targets: readonly Target[] = [
     root: '.codex',
     agentsDir: 'agents',
     agentExt: 'toml',
-    globalBase: join(homedir(), '.codex'),
+    globalBase: path.join(homedir(), '.codex'),
     skillsRoot: '.agents',
     skillsDir: 'skills',
-    skillsGlobalBase: join(homedir(), '.agents'),
+    skillsGlobalBase: path.join(homedir(), '.agents'),
     rewriteAgent: rewriteCodexAgent,
     rewriteSkill: dropToBase,
   },
 ];
 
-/** Absolute destination root for a target at a given scope. */
 export function scopeRoot(target: Target, scope: Scope, cwd: string): string {
-  return scope === 'global' ? target.globalBase : join(cwd, target.root);
+  return scope === 'global' ? target.globalBase : path.join(cwd, target.root);
 }
 
-/** Absolute skills destination root; falls back to `scopeRoot` when unset. */
 export function scopeSkillsRoot(target: Target, scope: Scope, cwd: string): string {
   if (scope === 'global') return target.skillsGlobalBase ?? target.globalBase;
-  return join(cwd, target.skillsRoot ?? target.root);
+  return path.join(cwd, target.skillsRoot ?? target.root);
 }
 
-/** What `install` needs to place files for one target. */
 export interface InstallTarget {
   readonly target: Target;
   readonly root: string;

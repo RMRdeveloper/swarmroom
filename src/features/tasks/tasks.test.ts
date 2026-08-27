@@ -31,7 +31,10 @@ describe('createGraph', () => {
   });
 
   it('rejects duplicate ids', () => {
-    assert.throws(() => createGraph([task({ id: 'T1' }), task({ id: 'T1' })]), /duplicate task id: T1/);
+    assert.throws(
+      () => createGraph([task({ id: 'T1' }), task({ id: 'T1' })]),
+      /duplicate task id: T1/,
+    );
   });
 
   it('rejects a missing dependency', () => {
@@ -44,10 +47,7 @@ describe('createGraph', () => {
   it('rejects a cycle', () => {
     assert.throws(
       () =>
-        createGraph([
-          task({ id: 'T1', dependsOn: ['T2'] }),
-          task({ id: 'T2', dependsOn: ['T1'] }),
-        ]),
+        createGraph([task({ id: 'T1', dependsOn: ['T2'] }), task({ id: 'T2', dependsOn: ['T1'] })]),
       /cycle in task graph/,
     );
   });
@@ -55,10 +55,7 @@ describe('createGraph', () => {
 
 describe('detectCycle', () => {
   it('returns null when acyclic', () => {
-    assert.equal(
-      detectCycle([task({ id: 'T1' }), task({ id: 'T2', dependsOn: ['T1'] })]),
-      null,
-    );
+    assert.equal(detectCycle([task({ id: 'T1' }), task({ id: 'T2', dependsOn: ['T1'] })]), null);
   });
 
   it('returns the cycle path', () => {

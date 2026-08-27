@@ -3,9 +3,7 @@ import { createInterface, type Interface } from 'node:readline/promises';
 let rl: Interface | undefined;
 
 function getRl(): Interface {
-  if (!rl) {
-    rl = createInterface({ input: process.stdin, output: process.stdout });
-  }
+  rl ??= createInterface({ input: process.stdin, output: process.stdout });
   return rl;
 }
 
@@ -19,7 +17,7 @@ interface Pickable {
  */
 export function parseSelection(answer: string, length: number): readonly number[] | null {
   const tokens = answer.split(',');
-  if (tokens.some((t) => t === '')) return null;
+  if (tokens.includes('')) return null;
 
   const nums = tokens.map((s) => Number.parseInt(s, 10));
   if (nums.some((n) => !Number.isInteger(n) || n < 1 || n > length)) return null;
@@ -43,28 +41,32 @@ export function parseConfirm(answer: string, defaultYes: boolean): boolean | nul
   return null;
 }
 
-/** Pick any number of options; empty input = all. Returns chosen items. */
 export async function selectMultiple<T extends Pickable>(
   msg: string,
   options: readonly T[],
 ): Promise<readonly T[]> {
   console.log(msg);
-  options.forEach((o, i) => console.log(`  ${i + 1}) ${o.label}`));
+  for (const [i, o] of options.entries()) console.log(`  ${String(i + 1)}) ${o.label}`);
 
   for (;;) {
-    const answer = (await getRl().question('(empty = all, comma-separated numbers)> ')).replace(/\s/g, '');
+    const rlInstance = getRl();
+    const rawAnswer = await rlInstance.question('(empty = all, comma-separated numbers)> ');
+    const answer = rawAnswer.replaceAll(/\s/g, '');
     if (answer === '') return options;
 
     const wanted = parseSelection(answer, options.length);
     if (!wanted) {
-      console.log(`Enter numbers from 1 to ${options.length}, comma-separated.`);
+      console.log(`Enter numbers from 1 to ${String(options.length)}, comma-separated.`);
       continue;
     }
-    return wanted.map((n) => options[n - 1]!);
+    return wanted.map((n) => {
+      const item = options[n - 1];
+      if (item === undefined) throw new Error(`unreachable: missing option at ${String(n)}`);
+      return item;
+    });
   }
 }
 
-/** Yes/no question; re-asks until empty / y / yes / n / no. */
 export async function confirm(msg: string, defaultYes: boolean): Promise<boolean> {
   for (;;) {
     const answer = await getRl().question(`${msg} [${defaultYes ? 'Y/n' : 'y/N'}] `);
@@ -74,7 +76,6 @@ export async function confirm(msg: string, defaultYes: boolean): Promise<boolean
   }
 }
 
-/** Close readline if it was ever opened; otherwise a no-op. */
 export function close(): void {
   if (!rl) return;
   rl.close();

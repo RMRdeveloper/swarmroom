@@ -1,4 +1,11 @@
-export const TASK_STATUSES = ['pending', 'ready', 'running', 'blocked', 'completed', 'failed'] as const;
+export const TASK_STATUSES = [
+  'pending',
+  'ready',
+  'running',
+  'blocked',
+  'completed',
+  'failed',
+] as const;
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
@@ -107,7 +114,6 @@ function replaceTask(graph: TaskGraph, next: Task): TaskGraph {
   };
 }
 
-/** Tasks with status pending or ready whose deps are all completed. Graph order. */
 export function readyTasks(graph: TaskGraph): readonly Task[] {
   const byId = new Map(graph.tasks.map((t) => [t.id, t]));
   return graph.tasks.filter((task) => {
@@ -121,14 +127,20 @@ export function withStatus(graph: TaskGraph, id: string, status: TaskStatus): Ta
   return replaceTask(graph, { ...task, status });
 }
 
-export function withResult(graph: TaskGraph, id: string, result: string, files?: readonly string[]): TaskGraph {
+export function withResult(
+  graph: TaskGraph,
+  id: string,
+  result: string,
+  files?: readonly string[],
+): TaskGraph {
   const task = taskById(graph, id);
   const { error: _error, ...rest } = task;
+  void _error;
   return replaceTask(graph, {
     ...rest,
     status: 'completed',
     result,
-    ...(files !== undefined ? { files } : {}),
+    ...(files === undefined ? {} : { files }),
   });
 }
 
@@ -159,7 +171,8 @@ export function propagateFailure(graph: TaskGraph): TaskGraph {
   const blocked = new Set<string>();
   const queue = [...failed];
   while (queue.length > 0) {
-    const id = queue.shift()!;
+    const id = queue.shift();
+    if (id === undefined) continue;
     for (const child of dependents.get(id) ?? []) {
       if (failed.has(child) || blocked.has(child)) continue;
       blocked.add(child);

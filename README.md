@@ -105,12 +105,12 @@ loads skills from `.agents/skills` (or `~/.agents/skills` when global).
 
 ## What you get
 
-| Editor      | Agents                  | Skills                     |
-| ----------- | ------------------------ | --------------------------- |
-| Cursor      | `.cursor/agents/*.md`    | `.cursor/skills/<name>/`    |
-| opencode    | `.opencode/agent/*.md`   | `.opencode/skills/<name>/`  |
-| Claude Code | `.claude/agents/*.md`    | `.claude/skills/<name>/`    |
-| Codex       | `.codex/agents/*.toml`   | `.agents/skills/<name>/`    |
+| Editor      | Agents                 | Skills                     |
+| ----------- | ---------------------- | -------------------------- |
+| Cursor      | `.cursor/agents/*.md`  | `.cursor/skills/<name>/`   |
+| opencode    | `.opencode/agent/*.md` | `.opencode/skills/<name>/` |
+| Claude Code | `.claude/agents/*.md`  | `.claude/skills/<name>/`   |
+| Codex       | `.codex/agents/*.toml` | `.agents/skills/<name>/`   |
 
 Each skill folder includes `SKILL.md`. Skills that ship a helper script get
 that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
@@ -131,25 +131,25 @@ For non-trivial work, the pipeline runs `sw-grilling` first when that skill is i
 
 ## Skills
 
-| Skill              | Role                                                                                                                                                        |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sw-pipeline`        | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                             |
-| `sw-spec`            | Writes a lightweight spec under `docs/specs/<slug>.md` in the target project root, then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently. |
-| `sw-grilling`        | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code. |
-| `sw-critic`          | Adversarial Red Team — manually stress-test a plan or diff for logical failures, assumptions, architecture and YAGNI. Not part of the automatic pipeline.    |
-| `sw-transcribe-audio`| Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
+| Skill                 | Role                                                                                                                                                                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sw-pipeline`         | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                                                                                                     |
+| `sw-spec`             | Writes a lightweight spec under `docs/specs/<slug>.md` in the target project root, then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently.                                                            |
+| `sw-grilling`         | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code.                                                                    |
+| `sw-critic`           | Adversarial Red Team — manually stress-test a plan or diff for logical failures, assumptions, architecture and YAGNI. Not part of the automatic pipeline.                                                                          |
+| `sw-transcribe-audio` | Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
 
 ## Agents
 
-| Agent                | Writes? | Role                                                                                                                                       |
-| ---------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `sw-planner`           | no      | Plan any non-trivial change before editing                                                                                                 |
-| `sw-implementer`       | yes     | Writes code to the repo's standards, then runs checks                                                                                       |
-| `sw-code-reviewer`     | no      | Reviews diffs; one `FINDING` line per issue                                                                                                 |
-| `sw-verifier`          | no      | Confirms the work exists, is wired, and passes tests                                                                                        |
-| `sw-fixer`             | yes     | Fixes findings, severity-first, max two passes each                                                                                         |
-| `sw-researcher`        | no      | Answers codebase questions with cited evidence                                                                                              |
-| `sw-web-researcher`    | no      | Answers web/docs questions with cited URLs                                                                                                  |
+| Agent               | Writes? | Role                                                  |
+| ------------------- | ------- | ----------------------------------------------------- |
+| `sw-planner`        | no      | Plan any non-trivial change before editing            |
+| `sw-implementer`    | yes     | Writes code to the repo's standards, then runs checks |
+| `sw-code-reviewer`  | no      | Reviews diffs; one `FINDING` line per issue           |
+| `sw-verifier`       | no      | Confirms the work exists, is wired, and passes tests  |
+| `sw-fixer`          | yes     | Fixes findings, severity-first, max two passes each   |
+| `sw-researcher`     | no      | Answers codebase questions with cited evidence        |
+| `sw-web-researcher` | no      | Answers web/docs questions with cited URLs            |
 
 `sw-researcher` and `sw-web-researcher` are on-demand. They are not stages in
 `sw-pipeline`. `sw-critic` is now a manual skill (`/sw-critic`), not an agent.

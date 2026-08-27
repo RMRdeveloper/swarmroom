@@ -55,4 +55,6 @@ Task instructions may narrow scope, files, and acceptance checks for this run; t
 
 ## Before done
 
-Run the repo's test and lint commands. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one. Fix any failure you introduced. Do not mark work done until these pass.
+Run the repo's test and lint commands. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one. Fix any failure you introduced.
+
+Before finishing, self-check comments hygiene: delete any `//` you added (except `// eslint-*`/`// global`) that passes quick-test `if deleting it leaves code just as clear` — keep only `/** JSDoc */` on exported symbols or `/** WARNING:`/`/** HACK: #123` hazard. Run `node scripts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'` (fallback `npm run check:comments`) and fix any `FINDING 1 | Medium | … | Comments` it reports. Do not mark work done until these pass.

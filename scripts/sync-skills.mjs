@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const SRC_ROOT = 'src/assets/skills';
@@ -11,9 +11,6 @@ const CHECK_FLAG = '--check';
 // sw-pipeline is excluded — it requires 7 agents via npm installer.
 const SKILLS_SH_ALLOWLIST = new Set(['sw-grilling', 'sw-spec', 'sw-critic', 'sw-transcribe-audio']);
 
-// Spec-allowed frontmatter keys
-const ALLOWED_KEYS = new Set(['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools']);
-
 const LICENSE = 'MIT';
 
 const DESCRIPTION_OVERRIDES = {
@@ -22,7 +19,8 @@ const DESCRIPTION_OVERRIDES = {
 };
 
 const COMPATIBILITY_OVERRIDES = {
-  'sw-transcribe-audio': 'Requires ffmpeg on PATH, Python 3 with faster-whisper via uv, and 809MB Whisper large-v3-turbo model on first run',
+  'sw-transcribe-audio':
+    'Requires ffmpeg on PATH, Python 3 with faster-whisper via uv, and 809MB Whisper large-v3-turbo model on first run',
 };
 
 function parseFrontmatter(raw) {
@@ -37,8 +35,7 @@ function parseFrontmatter(raw) {
   let inMultiline = false;
   let multilineBuffer = [];
   // Simple parser sufficient for our frontmatter shapes
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+  for (const line of lines) {
     if (inMultiline) {
       if (line.startsWith('  ') || line.startsWith('\t') || line.trim() === '') {
         multilineBuffer.push(line);
@@ -83,7 +80,14 @@ function parseFrontmatter(raw) {
 function serializeFrontmatter(data) {
   const lines = ['---'];
   // deterministic order: name, description, license, compatibility, metadata, allowed-tools
-  const order = ['name', 'description', 'license', 'compatibility', 'metadata', 'allowed-tools'];
+  const order = new Set([
+    'name',
+    'description',
+    'license',
+    'compatibility',
+    'metadata',
+    'allowed-tools',
+  ]);
   for (const k of order) {
     if (!(k in data)) continue;
     const v = data[k];
@@ -96,7 +100,7 @@ function serializeFrontmatter(data) {
         lines.push(`${k}: >-`);
         for (const l of v.split('\n')) lines.push(`  ${l}`);
       } else {
-        lines.push(`${k}: \"${v.replace(/\"/g, '\\\"')}\"`);
+        lines.push(`${k}: \"${v.replaceAll('"', '\\\"')}\"`);
       }
     } else {
       lines.push(`${k}: ${v}`);
@@ -104,7 +108,7 @@ function serializeFrontmatter(data) {
   }
   // any other allowed keys not in order
   for (const k of Object.keys(data)) {
-    if (order.includes(k)) continue;
+    if (order.has(k)) continue;
     lines.push(`${k}: ${data[k]}`);
   }
   lines.push('---', '');
@@ -112,9 +116,8 @@ function serializeFrontmatter(data) {
 }
 
 function sanitizeFrontmatter(rawData, skillName) {
-  const out = {};
+  const out = { name: rawData.name ?? skillName };
   // name must match directory
-  out.name = rawData.name ?? skillName;
   // description override or original
   let desc = DESCRIPTION_OVERRIDES[skillName] ?? rawData.description;
   if (!desc) throw new Error(`Missing description for ${skillName}`);
@@ -150,7 +153,9 @@ async function syncOne(skillName, check) {
 
   // Validate name matches dir
   if (data.name && data.name !== skillName) {
-    throw new Error(`Skill ${skillName}: frontmatter name "${data.name}" must match directory "${skillName}"`);
+    throw new Error(
+      `Skill ${skillName}: frontmatter name "${data.name}" must match directory "${skillName}"`,
+    );
   }
 
   const sanitized = sanitizeFrontmatter(data, skillName);
@@ -213,10 +218,26 @@ async function syncOne(skillName, check) {
 async function main() {
   const check = process.argv.includes(CHECK_FLAG);
   const skills = await readdir(SRC_ROOT, { withFileTypes: true });
-  const allNames = skills.filter((d) => d.isDirectory()).map((d) => d.name).sort();
+  const allNames = skills
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .toSorted();
   const names = allNames.filter((n) => SKILLS_SH_ALLOWLIST.has(n));
 
-  if (!check) {
+  if (check) {
+    // in check mode also verify that excluded skills are not present in dest
+    if (existsSync(DEST_ROOT)) {
+      const existing = await readdir(DEST_ROOT, { withFileTypes: true });
+      for (const e of existing) {
+        if (!e.isDirectory()) continue;
+        if (!SKILLS_SH_ALLOWLIST.has(e.name)) {
+          throw new Error(
+            `check failed: ${join(DEST_ROOT, e.name)} should not be published to skills.sh (only standalone skills)`,
+          );
+        }
+      }
+    }
+  } else {
     // clean old skills that no longer exist in src or allowlist
     if (existsSync(DEST_ROOT)) {
       const existing = await readdir(DEST_ROOT, { withFileTypes: true });
@@ -224,17 +245,6 @@ async function main() {
         if (!e.isDirectory()) continue;
         if (!names.includes(e.name)) {
           await rm(join(DEST_ROOT, e.name), { recursive: true, force: true });
-        }
-      }
-    }
-  } else {
-    // in check mode also verify that excluded skills are not present in dest
-    if (existsSync(DEST_ROOT)) {
-      const existing = await readdir(DEST_ROOT, { withFileTypes: true });
-      for (const e of existing) {
-        if (!e.isDirectory()) continue;
-        if (!SKILLS_SH_ALLOWLIST.has(e.name)) {
-          throw new Error(`check failed: ${join(DEST_ROOT, e.name)} should not be published to skills.sh (only standalone skills)`);
         }
       }
     }
@@ -246,7 +256,9 @@ async function main() {
   if (check) {
     console.log('skills sync check: ok');
   } else {
-    console.log(`synced ${names.length} skills to ${DEST_ROOT}/ (standalone only, sw-pipeline excluded)`);
+    console.log(
+      `synced ${names.length} skills to ${DEST_ROOT}/ (standalone only, sw-pipeline excluded)`,
+    );
   }
 }
 

@@ -4,8 +4,8 @@ import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { agents } from '../domain/pipeline.ts';
-import { targets } from '../domain/targets.ts';
+import { targets } from '../features/installer/targets.ts';
+import { agents } from '../shared/kernel/pipeline.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const agentsDir = join(here, 'agents');
@@ -48,10 +48,10 @@ function readAgent(name: string): string {
 function section(source: string, heading: string): string {
   const marker = `## ${heading}`;
   const start = source.indexOf(marker);
-  assert.ok(start >= 0, `missing section ## ${heading}`);
+  assert.ok(start !== -1, `missing section ## ${heading}`);
   const after = start + marker.length;
   const next = source.indexOf('\n## ', after);
-  const body = next < 0 ? source.slice(after) : source.slice(after, next);
+  const body = next === -1 ? source.slice(after) : source.slice(after, next);
   return body.replace(/^\n+/, '').replace(/\n+$/, '');
 }
 
@@ -69,9 +69,9 @@ function bullets(sectionText: string): string[] {
  */
 function blockThrough(source: string, heading: string, endMarker: string): string {
   const start = source.indexOf(`## ${heading}`);
-  assert.ok(start >= 0, `missing ## ${heading}`);
+  assert.ok(start !== -1, `missing ## ${heading}`);
   const end = source.indexOf(endMarker, start);
-  assert.ok(end >= 0, `missing end marker in ## ${heading}`);
+  assert.ok(end !== -1, `missing end marker in ## ${heading}`);
   return source.slice(start, end + endMarker.length);
 }
 
@@ -99,9 +99,15 @@ function quickReferenceDoCells(): string[] {
 
 function assertSharedBlockHygiene(block: string, label: string): void {
   for (const line of block.split('\n')) {
-    assert.ok(!FORBIDDEN_PREFIX.test(line.trim()), `${label}: forbidden frontmatter prefix in shared block: ${line}`);
+    assert.ok(
+      !FORBIDDEN_PREFIX.test(line.trim()),
+      `${label}: forbidden frontmatter prefix in shared block: ${line}`,
+    );
   }
-  assert.ok(!block.includes('\n\n\n'), `${label}: shared block contains three consecutive newlines`);
+  assert.ok(
+    !block.includes('\n'.repeat(3)),
+    `${label}: shared block contains three consecutive newlines`,
+  );
 }
 
 function assertIdenticalBlocks(blocks: readonly string[], label: string): string {
@@ -117,14 +123,29 @@ function assertIdenticalBlocks(blocks: readonly string[], label: string): string
 function assertAgentSurvivesRewrites(name: string, source: string): void {
   for (const target of targets) {
     const rewritten = target.rewriteAgent(source);
-    assert.ok(!rewritten.includes('\n\n\n'), `${name}@${target.id}: rewritten source has three consecutive newlines`);
+    assert.ok(
+      !rewritten.includes('\n'.repeat(3)),
+      `${name}@${target.id}: rewritten source has three consecutive newlines`,
+    );
     if (target.id === 'codex') {
       assert.match(rewritten, /^name = /m, `${name}@${target.id}: expected TOML name =`);
-      assert.match(rewritten, /^description = /m, `${name}@${target.id}: expected TOML description =`);
-      assert.match(rewritten, /^developer_instructions = '''/m, `${name}@${target.id}: expected TOML developer_instructions = '''`);
+      assert.match(
+        rewritten,
+        /^description = /m,
+        `${name}@${target.id}: expected TOML description =`,
+      );
+      assert.match(
+        rewritten,
+        /^developer_instructions = '''/m,
+        `${name}@${target.id}: expected TOML developer_instructions = '''`,
+      );
       continue;
     }
-    assert.match(rewritten, /^description:/m, `${name}@${target.id}: rewritten source must keep description:`);
+    assert.match(
+      rewritten,
+      /^description:/m,
+      `${name}@${target.id}: rewritten source must keep description:`,
+    );
     if (target.id === 'opencode' || target.id === 'claude') {
       assert.match(rewritten, /^mode: subagent$/m, `${name}@${target.id}: expected mode: subagent`);
     }
@@ -134,13 +155,17 @@ function assertAgentSurvivesRewrites(name: string, source: string): void {
 const READ_FIRST_END =
   'If any of these is missing, say so explicitly instead of assuming there are no constraints. When present, they override the baseline below.';
 
-const BASELINE_END = '- Comments only for important non-obvious intent — no narration, no noise, no stale TODOs.';
+const BASELINE_END =
+  '- Comments only for important non-obvious intent — no narration, no noise, no stale TODOs.';
 
 const FINDINGS_END =
   'Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline. `rule` names the violated guideline.';
 
 describe('agent prompt assets', () => {
-  const byName = Object.fromEntries(agents.map((name) => [name, readAgent(name)])) as Record<string, string>;
+  const byName = Object.fromEntries(agents.map((name) => [name, readAgent(name)])) as Record<
+    string,
+    string
+  >;
 
   it('keeps read-first identical across the five pipeline agents', () => {
     const blocks = READ_FIRST_AGENTS.map((n) =>
@@ -151,7 +176,11 @@ describe('agent prompt assets', () => {
 
   it('keeps baseline identical across the five pipeline agents', () => {
     const blocks = READ_FIRST_AGENTS.map((n) =>
-      blockThrough(byName[n]!, 'Baseline standards (apply when the repo defines nothing stricter)', BASELINE_END),
+      blockThrough(
+        byName[n]!,
+        'Baseline standards (apply when the repo defines nothing stricter)',
+        BASELINE_END,
+      ),
     );
     assertIdenticalBlocks(blocks, 'baseline');
   });
@@ -164,13 +193,16 @@ describe('agent prompt assets', () => {
 
   it('aligns baseline bullets with Quick reference Do cells', () => {
     const doCells = quickReferenceDoCells();
-    const baselineBody = section(byName['sw-planner']!, 'Baseline standards (apply when the repo defines nothing stricter)');
+    const baselineBody = section(
+      byName['sw-planner']!,
+      'Baseline standards (apply when the repo defines nothing stricter)',
+    );
     const list = bullets(baselineBody);
     assert.equal(list.length, doCells.length);
-    for (let i = 0; i < doCells.length; i++) {
+    for (const [i, doCell] of doCells.entries()) {
       assert.ok(
-        list[i]!.startsWith(`- ${doCells[i]} —`),
-        `baseline bullet ${i} must start with "- ${doCells[i]} —"; got: ${list[i]}`,
+        list[i]!.startsWith(`- ${doCell} —`),
+        `baseline bullet ${i} must start with "- ${doCell} —"; got: ${list[i]}`,
       );
     }
   });
@@ -192,7 +224,10 @@ describe('agent prompt assets', () => {
     );
     assert.equal(fromImpl, fromFixer);
     for (const name of ['sw-code-reviewer', 'sw-verifier', ...RESEARCH_AGENTS] as const) {
-      assert.ok(!byName[name]!.toLowerCase().includes('grilling'), `${name} must not mention grilling`);
+      assert.ok(
+        !byName[name]!.toLowerCase().includes('grilling'),
+        `${name} must not mention grilling`,
+      );
     }
   });
 
@@ -222,7 +257,10 @@ describe('agent prompt assets', () => {
     assert.ok(byName['sw-implementer']!.includes(precedence));
     for (const name of ['sw-planner', 'sw-implementer'] as const) {
       const body = byName[name]!.toLowerCase();
-      assert.ok(!body.includes('ignore the coding guidelines'), `${name} must not bypass guidelines`);
+      assert.ok(
+        !body.includes('ignore the coding guidelines'),
+        `${name} must not bypass guidelines`,
+      );
       assert.ok(!body.includes('skip verification'), `${name} must not skip verification`);
       assert.ok(!body.includes('skip the required'), `${name} must not skip required architecture`);
     }
@@ -261,7 +299,11 @@ describe('agent prompt assets', () => {
           readFirstRaw,
         );
         assert.equal(
-          blockThrough(rewritten, 'Baseline standards (apply when the repo defines nothing stricter)', BASELINE_END),
+          blockThrough(
+            rewritten,
+            'Baseline standards (apply when the repo defines nothing stricter)',
+            BASELINE_END,
+          ),
           baselineRaw,
         );
       }

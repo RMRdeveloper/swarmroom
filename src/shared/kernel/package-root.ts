@@ -1,13 +1,13 @@
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Walk up from a module URL until `package.json` is found. */
 export function packageRoot(metaUrl: string = import.meta.url): string {
-  let dir = dirname(fileURLToPath(metaUrl));
+  let dir = path.dirname(fileURLToPath(metaUrl));
   for (;;) {
-    if (existsSync(join(dir, 'package.json'))) return dir;
-    const parent = dirname(dir);
+    if (existsSync(path.join(dir, 'package.json'))) return dir;
+    const parent = path.dirname(dir);
     if (parent === dir) throw new Error(`package.json not found from ${metaUrl}`);
     dir = parent;
   }
@@ -15,5 +15,5 @@ export function packageRoot(metaUrl: string = import.meta.url): string {
 
 /** Absolute path to the shipped agent/skill assets. */
 export function assetsDir(metaUrl?: string): string {
-  return join(packageRoot(metaUrl), 'src', 'assets');
+  return path.join(packageRoot(metaUrl), 'src', 'assets');
 }

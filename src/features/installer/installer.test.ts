@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, describe, it } from 'node:test';
 
-import { targets } from '../domain/targets.ts';
+import { assetsDir } from '../../shared/kernel/package-root.ts';
+
 import { anyPresent, install, installGuidelines } from './installer.ts';
-import { assetsDir } from './package-root.ts';
+import { targets } from './targets.ts';
 
 const cursor = targets.find((t) => t.id === 'cursor');
 assert.ok(cursor);
@@ -63,23 +64,29 @@ describe('installer', () => {
   it('fails fast when a required asset is missing', async () => {
     const root = await tempDir();
     const emptyAssets = await tempDir();
-    await assert.rejects(() => install({ target: cursor, root }, true, emptyAssets), (err: unknown) => {
-      assert.ok(err instanceof Error);
-      assert.match(err.message, /missing asset\(s\)/);
-      assert.match(err.message, /sw-planner\.md/);
-      return true;
-    });
+    await assert.rejects(
+      () => install({ target: cursor, root }, true, emptyAssets),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /missing asset\(s\)/);
+        assert.match(err.message, /sw-planner\.md/);
+        return true;
+      },
+    );
   });
 
   it('fails fast when guidelines artifact is missing', async () => {
     const root = await tempDir();
     const emptyAssets = await tempDir();
-    await assert.rejects(() => installGuidelines(root, true, emptyAssets), (err: unknown) => {
-      assert.ok(err instanceof Error);
-      assert.match(err.message, /missing asset\(s\)/);
-      assert.match(err.message, /CODING_GUIDELINES\.md/);
-      return true;
-    });
+    await assert.rejects(
+      () => installGuidelines(root, true, emptyAssets),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /missing asset\(s\)/);
+        assert.match(err.message, /CODING_GUIDELINES\.md/);
+        return true;
+      },
+    );
   });
 
   it('installs Codex agents as toml and skills under a separate root', async () => {
@@ -115,7 +122,10 @@ describe('installer', () => {
   });
 
   it('copies sw-transcribe-audio companion script as-is', async () => {
-    const source = await readFile(join(assetsDir(), 'skills', 'sw-transcribe-audio', 'transcribe.py'), 'utf8');
+    const source = await readFile(
+      join(assetsDir(), 'skills', 'sw-transcribe-audio', 'transcribe.py'),
+      'utf8',
+    );
 
     const root = await tempDir();
     const report = await install({ target: cursor, root }, true);
@@ -125,7 +135,10 @@ describe('installer', () => {
 
     const agentRoot = await tempDir();
     const skillRoot = await tempDir();
-    const codexReport = await install({ target: codex, root: agentRoot, skillsRoot: skillRoot }, true);
+    const codexReport = await install(
+      { target: codex, root: agentRoot, skillsRoot: skillRoot },
+      true,
+    );
     const codexDest = join(skillRoot, codex.skillsDir, 'sw-transcribe-audio', 'transcribe.py');
     assert.equal(await readFile(codexDest, 'utf8'), source);
     assert.ok(codexReport.files.some((f) => f.dest === codexDest));

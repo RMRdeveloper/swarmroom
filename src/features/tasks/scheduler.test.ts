@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import {
-  MAX_ATTEMPTS,
-  applyReplan,
-  canRetry,
-  isWriter,
-  selectRunnable,
-} from './scheduler.ts';
+import { MAX_ATTEMPTS, applyReplan, canRetry, isWriter, selectRunnable } from './scheduler.ts';
 import {
   createGraph,
   isComplete,
