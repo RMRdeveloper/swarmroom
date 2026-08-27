@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-08-27
+
+### Fixed
+
+- **Docs:** `README.md` repository layout now reflects `src/shared/kernel/` + `src/features/{installer,tasks,tasks-cli}/` and `src/cli/args.ts` (previously showed removed `src/domain/` / `src/io/` / `src/cli/{report,prompts,style}.ts`); development commands now list `npm run lint` / `format:check` / `check:comments` / `check` (CI) and artifact install note documents `.swarmroom/artifacts/check-comments.mjs` (`ARTIFACTS_ALLOWLIST`); adding-a-target/agent paths corrected to `src/features/installer/targets.ts` and `src/shared/kernel/pipeline.ts`.
+- **Docs:** `AGENTS.md` TypeScript quirks no longer claims "No lint step" — now documents strict `lint` / `format:check` / `check:comments` gates and `npm run check` in CI; commands section updated to full `types + lint + format:check + test + check:comments` list; style workflow now mentions `check-comments.mjs` artifact sync and JSDoc-only rule.
+- `src/assets/agents/sw-planner.md` example path `src/domain/types.ts` → `src/features/auth/types.ts`.
+
 ## [2.3.0] - 2026-08-27
 
 ### Added
@@ -78,5 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/cli.ts`
 - `src/cli.test.ts`
 
-[Unreleased]: https://github.com/RMRdeveloper/swarmroom/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/RMRdeveloper/swarmroom/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/RMRdeveloper/swarmroom/compare/v2.3.0...v2.3.1
+[2.3.0]: https://github.com/RMRdeveloper/swarmroom/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/RMRdeveloper/swarmroom/releases/tag/v2.2.0

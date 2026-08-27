@@ -115,8 +115,10 @@ loads skills from `.agents/skills` (or `~/.agents/skills` when global).
 Each skill folder includes `SKILL.md`. Skills that ship a helper script get
 that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
 
-Project installs also copy `CODING_GUIDELINES.md` to the repo root. Global
-installs skip that file. Codex global skills go to `~/.agents/skills`.
+Project installs also copy `CODING_GUIDELINES.md` to the repo root and
+`check-comments.mjs` to `.swarmroom/artifacts/check-comments.mjs` (gitignored,
+allowlist `ARTIFACTS_ALLOWLIST`). Global installs skip those artifacts. Codex
+global skills go to `~/.agents/skills`.
 
 ## Pipeline
 
@@ -168,21 +170,32 @@ Severity: `Critical` = must fix before merge; `High` = must fix before merge; `M
 
 ```
 src/
-├── cli.ts            # entry: option parsing + orchestration
-├── domain/
-│   ├── pipeline.ts   # single source of the sw-* agent names + skills list
-│   └── targets.ts    # Target configs (cursor|opencode|claude|codex) + frontmatter rewrites
-├── io/
-│   └── installer.ts  # copies assets to the target dir (idempotent)
+├── cli.ts                               # entry: option parsing + orchestration
 ├── cli/
-│   ├── args.ts       # argv parsing + help text
-│   ├── report.ts     # install summary output
-│   ├── style.ts      # TTY-aware colors (picocolors)
-│   └── prompts.ts    # interactive selection (stdlib readline)
-├── assets/           # the markdown you install (source of truth)
-│   ├── artifacts/CODING_GUIDELINES.md
-│   ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
-│   └── agents/sw-*.md
+│   └── args.ts                          # argv parsing + help text
+├── shared/kernel/
+│   ├── pipeline.ts                      # single source of the sw-* agent names + skills list
+│   ├── tasks-format.ts                  # shared .tasks block parsing (LINE_RE, splitList, ...)
+│   ├── style.ts                         # TTY-aware colors (picocolors)
+│   └── package-root.ts                  # walk up to package.json for assets resolution
+├── features/
+│   ├── installer/
+│   │   ├── targets.ts                   # Target configs (cursor|opencode|claude|codex) + frontmatter rewrites
+│   │   ├── installer.ts                 # copies assets to target dirs (idempotent)
+│   │   ├── report.ts                    # install summary output
+│   │   └── prompts.ts                   # interactive selection (stdlib readline)
+│   ├── tasks/
+│   │   ├── tasks.ts                     # pure Task Graph + ready/parallel selection (no IO)
+│   │   ├── scheduler.ts
+│   │   └── task-store.ts                # read/write .swarmroom/tasks/<runId>.tasks (blocks field: value)
+│   └── tasks-cli/
+│       └── tasks.ts                     # adapter for `tasks` CLI commands (render, replan, humanReady)
+└── assets/                              # the markdown you install (source of truth)
+    ├── artifacts/
+    │   ├── CODING_GUIDELINES.md
+    │   └── check-comments.mjs           # deterministic comment gate (JSDoc-only, copies to .swarmroom/artifacts/)
+    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
+    └── agents/sw-*.md
 skills/               # spec-compliant mirror for skills.sh — only standalone skills (sw-pipeline excluded, needs agents)
 ├── sw-grilling/SKILL.md
 ├── sw-spec/SKILL.md
@@ -194,11 +207,15 @@ skills/               # spec-compliant mirror for skills.sh — only standalone 
 
 ```bash
 npm install
-npm run types    # tsc --noEmit type check
-npm test         # node:test suite
-npm run setup    # run the CLI (alias for `node src/cli.ts`)
-npm run build    # bundle CLI to dist/cli.js (required for npm publish / npx)
-npm run sync:skills        # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
+npm run types            # tsc --noEmit type check
+npm run lint             # eslint . (strict + unicorn)
+npm run format:check     # prettier --check .
+npm test                 # node:test suite (colocated *.test.ts)
+npm run check:comments   # deterministic gate: JSDoc-only comments under src/features|shared|cli
+npm run check            # types + lint + format:check + test + check:comments (CI)
+npm run setup            # run the CLI (alias for `node src/cli.ts`)
+npm run build            # bundle CLI to dist/cli.js (required for npm publish / npx)
+npm run sync:skills      # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
 ```
 
 TypeScript runs directly during development (Node's native type stripping,
@@ -208,12 +225,12 @@ Node ≥ 20.
 
 ## Adding a tool or agent
 
-- **New editor target:** add one `Target` entry in `src/domain/targets.ts` —
+- **New editor target:** add one `Target` entry in `src/features/installer/targets.ts` —
   the rest is automatic.
 - **New agent:** add its markdown to `src/assets/agents/` and its name to
-  `src/domain/pipeline.ts`.
+  `src/shared/kernel/pipeline.ts`.
 - **New skill:** add `src/assets/skills/<name>/SKILL.md` and append the name
-  to `skills` in `src/domain/pipeline.ts`.
+  to `skills` in `src/shared/kernel/pipeline.ts`.
 
 The only tracked source of agent/skill content is `src/assets/`. `skills/` is a generated, spec-compliant mirror for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`) — do not edit it by hand, run `npm run sync:skills` instead. Everything under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a gitignored, installer-generated copy — never edit those directly.
 

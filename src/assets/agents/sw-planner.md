@@ -80,7 +80,7 @@ id: T1
 status: pending
 dependsOn: -
 title: Define domain types
-files: src/domain/types.ts
+files: src/features/auth/types.ts
 acceptance: types exported; no any
 
 id: T2

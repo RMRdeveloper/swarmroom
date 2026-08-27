@@ -20,11 +20,15 @@ agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-re
 
 ```
 npm install
-npm run types        # tsc --noEmit (type check)
-npm test             # node --test 'src/**/*.test.ts'
-npm run build        # bundle CLI to dist/cli.js (required for npm publish / npx)
-npm run sync:skills  # regenerate skills/ mirror for skills.sh
-npm run setup        # node src/cli.ts (run the installer; alias)
+npm run types            # tsc --noEmit (type check)
+npm run lint             # eslint . (strict + unicorn)
+npm run format:check     # prettier --check .
+npm test                 # node --test 'src/**/*.test.ts'
+npm run check:comments   # deterministic gate: JSDoc-only comments (src/features|shared|cli)
+npm run check            # types + lint + format:check + test + check:comments (CI)
+npm run build            # bundle CLI to dist/cli.js (required for npm publish / npx)
+npm run sync:skills      # regenerate skills/ mirror for skills.sh
+npm run setup            # node src/cli.ts (run the installer; alias)
 node src/cli.ts --cursor --opencode --codex --global --force   # non-interactive install
 node src/cli.ts tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
 ```
@@ -63,11 +67,12 @@ published bin needs Node ≥ 20.
 - `verbatimModuleSyntax` is on: type-only imports MUST use `import type { ... }`.
 - Imports use the `.ts` extension (e.g. `from './targets.ts'`) — Node ESM + `allowImportingTsExtensions`.
 - `strict` + `noUncheckedIndexedAccess` are on: array/object indexing yields `T | undefined`.
-- No lint step — only `npm run types` and `npm test`.
+- Lint/format gates are strict: `npm run lint` (eslint + unicorn), `npm run format:check` (prettier), `npm run check:comments` (JSDoc-only). CI runs `npm run check`.
 
 ## Style / workflow
 
 - Follow `src/assets/artifacts/CODING_GUIDELINES.md` (guard clauses, explicit
   errors, small focused pure units, no premature abstraction). If it changes,
-  re-run the installer to sync the gitignored root copy.
+  re-run the installer to sync the gitignored root copy and `src/assets/artifacts/check-comments.mjs` to `.swarmroom/artifacts/`.
 - Tests are colocated `*.test.ts` next to their modules, using `node:test`.
+- Comments are JSDoc-only (`/** */`): `npm run check:comments` fails on `//` outside allowlist (`eslint,global`). See `src/assets/artifacts/check-comments.mjs`.
