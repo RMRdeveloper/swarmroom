@@ -43,11 +43,13 @@ published bin needs Node ≥ 20.
 - `src/shared/kernel/pipeline.ts` — single source of truth declaring the `sw-*` agent
   names and the `skills` list. Adding an agent/skill requires updating this **and**
   dropping the matching file in `src/assets/`; targets are then handled automatically.
-- `src/shared/kernel/tasks-format.ts` — shared `.tasks` block parsing (LINE_RE, splitList, parseBlockRecord, CANONICAL_ORDER).
+- `src/shared/kernel/tasks-format.ts` — shared `.tasks` block parsing (LINE_RE, splitList, parseBlockRecord, CANONICAL_ORDER) in English.
+- `src/shared/kernel/findings-validator.ts` — deterministic validator for `FINDING N | Severity | file:line | rule | description` (strict vocab, sequential N, `No findings` case).
 - `src/shared/kernel/style.ts` — picocolors helpers for file/task status (no outward deps).
 - `src/shared/kernel/package-root.ts` — walk up to `package.json` for assets resolution.
 - `src/features/tasks/tasks.ts` / `scheduler.ts` — pure Task Graph + ready/parallel selection (no IO).
-- `src/features/tasks/task-store.ts` — read/write `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) in a consumer project (isolated per pipeline, `--tasks-file` required).
+- `src/features/tasks/task-store.ts` — read/write `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON, English errors) in a consumer project (isolated per pipeline, `--tasks-file` required).
+- `src/assets/artifacts/check-comments.mjs` — deterministic JSDoc-only gate with `--fix/--dry-run` (`pass|clean|rejected`), `PATTERNS` const, `isViolation` deduplication; `findings-validator.mjs` — findings schema validator.
 - `src/features/tasks-cli/tasks.ts` — adapter for `tasks` CLI commands (render, replan discrimination, humanReady).
 - `src/features/installer/targets.ts` — per-editor `Target` configs (cursor|opencode|claude|codex)
   with directory layouts and frontmatter rewrites. New editor = add a `Target` here.
@@ -73,6 +75,7 @@ published bin needs Node ≥ 20.
 
 - Follow `src/assets/artifacts/CODING_GUIDELINES.md` (guard clauses, explicit
   errors, small focused pure units, no premature abstraction). If it changes,
-  re-run the installer to sync the gitignored root copy and `src/assets/artifacts/check-comments.mjs` to `.swarmroom/artifacts/`.
+  re-run the installer to sync the gitignored root copy and `src/assets/artifacts/*.mjs` to `.swarmroom/artifacts/`.
+- Specs are generated in `.swarmroom/specs/<slug>.md` (English, isolated from `docs/`), not `docs/specs/`.
 - Tests are colocated `*.test.ts` next to their modules, using `node:test`.
 - Comments are JSDoc-only (`/** */`): `npm run check:comments` fails on `//` outside allowlist (`eslint,global`). See `src/assets/artifacts/check-comments.mjs`.

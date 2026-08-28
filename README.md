@@ -116,7 +116,7 @@ Each skill folder includes `SKILL.md`. Skills that ship a helper script get
 that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
 
 Project installs also copy `CODING_GUIDELINES.md` to the repo root and
-`check-comments.mjs` to `.swarmroom/artifacts/check-comments.mjs` (gitignored,
+`check-comments.mjs` + `findings-validator.mjs` to `.swarmroom/artifacts/` (gitignored,
 allowlist `ARTIFACTS_ALLOWLIST`). Global installs skip those artifacts. Codex
 global skills go to `~/.agents/skills`.
 
@@ -136,7 +136,7 @@ For non-trivial work, the pipeline runs `sw-grilling` first when that skill is i
 | Skill                 | Role                                                                                                                                                                                                                               |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sw-pipeline`         | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                                                                                                     |
-| `sw-spec`             | Writes a lightweight spec under `docs/specs/<slug>.md` in the target project root, then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently.                                                            |
+| `sw-spec`             | Writes a lightweight spec under `.swarmroom/specs/<slug>.md` in the target project root (isolated from `docs/`), then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently. Always in English.           |
 | `sw-grilling`         | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code.                                                                    |
 | `sw-critic`           | Adversarial Red Team — manually stress-test a plan or diff for logical failures, assumptions, architecture and YAGNI. Not part of the automatic pipeline.                                                                          |
 | `sw-transcribe-audio` | Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
@@ -193,7 +193,8 @@ src/
 └── assets/                              # the markdown you install (source of truth)
     ├── artifacts/
     │   ├── CODING_GUIDELINES.md
-    │   └── check-comments.mjs           # deterministic comment gate (JSDoc-only, copies to .swarmroom/artifacts/)
+    │   ├── check-comments.mjs           # deterministic comment gate (JSDoc-only, --fix, copies to .swarmroom/artifacts/)
+    │   └── findings-validator.mjs       # deterministic findings schema validator (FINDING N | Severity | file:line | rule | description)
     ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
     └── agents/sw-*.md
 skills/               # spec-compliant mirror for skills.sh — only standalone skills (sw-pipeline excluded, needs agents)

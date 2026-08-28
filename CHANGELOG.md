@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-08-28
+
+### Added
+
+- **i18n English:** All `.tasks` block errors translated from Spanish to English (`block N line L: malformed line`, `unknown key`, `duplicate key`, `missing field`, `invalid status`, `cannot be empty`, `contains empty element`, `cannot mix "-"`, `must be a non-empty string`, `must be integer >=0`, `legacy JSON format not supported`); `sw-spec` now `Always write in English` (was `language of the user's request`).
+- **Task graph fixes:** `propagateFailure` fail-closed via `completed` (transitive), `readyTasks`/`isComplete` with implicit `propagateFailure` to avoid deadlock, `detectCycle` fail-fast on missing dep, `WRITER_SET` strong typing (`typeof WRITER_AGENTS[number]`), `taskGraphPath` validates `..`/`\\0` also for absolute paths.
+- **Deterministic comment gate:** `src/assets/artifacts/check-comments.mjs` refactored to `PATTERNS` const, `isViolation`/`collectViolationsFromLines` deduplication, `TODO` word-boundary + comment-only, `eslint-disable` requires `-- reason`, new `--fix`/`--dry-run` (`pass|clean|rejected`) and sync to `.swarmroom/artifacts/`.
+- **Findings validator:** New `src/shared/kernel/findings-validator.ts` + `src/assets/artifacts/findings-validator.mjs` + CLI `swarmroom validate-findings --file <path> [--strict]` validates `FINDING N | Severity | file:line | rule | description` (strict vocab, `file:line` existence, sequential N, no `|` in description, `No findings` special case).
+- **Specs isolation:** `sw-spec` now stores specs in `.swarmroom/specs/<slug>.md` (was `docs/specs/`), isolating swarmroom-generated specs from real project `docs/`.
+- **Pipeline determinism (2+1):** `sw-implementer`/`sw-fixer` self-check via `.swarmroom/artifacts/check-comments.mjs --staged`; orchestrator runs single deterministic `check-comments --staged` after `T2` and injects `FINDING` to `sw-code-reviewer`/`sw-verifier` (who no longer re-run the script).
+
+### Changed
+
+- `README.md`: `sw-spec` row and `What you get`/`Repository layout` now document `.swarmroom/specs/` and `findings-validator.mjs`.
+- `src/assets/agents/{sw-code-reviewer,sw-verifier}.md` now consume orchestrator-provided `FINDING` instead of re-running `check-comments` (DRY).
+- `src/features/installer/installer.ts` `ARTIFACTS_ALLOWLIST` now `["check-comments.mjs", "findings-validator.mjs"]`.
+
 ## [2.3.1] - 2026-08-27
 
 ### Fixed
