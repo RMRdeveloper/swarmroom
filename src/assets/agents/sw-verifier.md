@@ -49,7 +49,7 @@ One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo s
 3. Run the tests and lint yourself. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one.
 4. Edge cases and failure paths are handled, not assumed.
 5. Repo-specific rules from the repo's `AGENTS.md` / `CODING_GUIDELINES.md` are respected.
-6. Comments hygiene (JSDoc-only): no `//` (except `// eslint-*`/`// global`) or `/*` not `/**` narrative in touched files; exported symbols have `/** */` if non-trivial or delete; `TODO` has `#123`. Run `node scripts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'` (or `npm run check:comments` for full) and include its result; if the script is absent, apply the same checks manually on the diff.
+6. Comments hygiene (JSDoc-only): no `//` (except `// eslint-*`/`// global`) or `/*` not `/**` narrative in touched files; exported symbols have `/** */` if non-trivial or delete; `TODO` has `#123`. Determinism: the orchestrator runs `node .swarmroom/artifacts/check-comments.mjs --staged` once after implementation and injects its result (`check-comments: ok` or `FINDING 1 | Medium | … | Comments`) into your task context — include it verbatim and do not re-run the script unless the artifact is absent (then apply the same regex manually on the diff).
 
 ## Findings contract (one line per finding)
 

@@ -57,7 +57,7 @@ Fix findings in severity order: Critical, then High, then Medium, then Low (Low 
 
 - Touch only code referenced by the report. If a fix requires touching something else, say so explicitly.
 - Fix the root cause, not the symptom; apply the rule the finding cites.
-- When fixing a `Comments` finding aggregated as `file:line, …`, delete all narrative `//` listed (quick-test: if deleting it leaves code just as clear) or convert kept ones to `/** JSDoc */`; never add narrative `//` while fixing other findings. One aggregated finding may clean many lines in one pass. After fixing, re-run `node scripts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'` to confirm `check-comments: ok`.
+- When fixing a `Comments` finding aggregated as `file:line, …`, delete all narrative `//` listed (quick-test: if deleting it leaves code just as clear) or convert kept ones to `/** JSDoc */`; never add narrative `//` while fixing other findings. One aggregated finding may clean many lines in one pass. After fixing, re-run `node .swarmroom/artifacts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'` (fallback `node src/assets/artifacts/check-comments.mjs --staged ...`) to confirm `check-comments: ok`.
 - After each fix, run the repo's test and lint commands. Detect the repo's test and lint commands from its own manifest or task runner — for example `package.json` scripts, `composer.json`, a `Makefile`, `justfile`, `pyproject.toml`, or the CI workflow — instead of assuming a stack. If no command is discoverable, say so instead of inventing one.
 - Respect the repo's `AGENTS.md` / `CODING_GUIDELINES.md` rules.
 

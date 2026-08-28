@@ -189,7 +189,7 @@ describe('runTaskCommand', () => {
         tasksFile: 'run.tasks',
         command: { kind: 'replan', file: proposalPath },
       }),
-      /replan bloque 1: falta campo "title"/,
+      /replan block 1: missing field "title"/,
     );
   });
 

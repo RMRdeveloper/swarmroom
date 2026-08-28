@@ -3,16 +3,16 @@ import { createGraph, readyTasks, type Task, type TaskGraph } from './tasks.ts';
 export const WRITER_AGENTS = ['sw-implementer', 'sw-fixer'] as const;
 export const MAX_ATTEMPTS = 2;
 
-const WRITER_SET: ReadonlySet<string> = new Set(WRITER_AGENTS);
+const WRITER_SET: ReadonlySet<(typeof WRITER_AGENTS)[number]> = new Set(WRITER_AGENTS);
 
 export interface ReplanProposal {
   readonly addTasks?: readonly Task[];
   readonly addDependencies?: readonly { readonly id: string; readonly dependsOn: string }[];
 }
 
-export function isWriter(agent: string | undefined): boolean {
+export function isWriter(agent: string | undefined): agent is (typeof WRITER_AGENTS)[number] {
   if (agent === undefined) return false;
-  return WRITER_SET.has(agent);
+  return (WRITER_SET as ReadonlySet<string>).has(agent);
 }
 
 export function canRetry(task: Task): boolean {

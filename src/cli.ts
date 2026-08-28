@@ -55,6 +55,28 @@ async function main(): Promise<void> {
       await runTasks({ dir: parsed.dir, tasksFile: parsed.tasksFile, command: parsed.command });
       return;
     }
+    if (parsed.kind === 'validate-findings') {
+      const { readFileSync } = await import('node:fs');
+      const { validateFindings } = await import('./shared/kernel/findings-validator.ts');
+      let raw: string;
+      try {
+        raw = readFileSync(parsed.file, 'utf8');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        printError(`cannot read ${parsed.file}: ${message}`);
+        process.exitCode = 1;
+        return;
+      }
+      const result = validateFindings(raw, { strict: parsed.strict });
+      if (result.valid) {
+        if (result.findings.length === 0) console.log('No findings');
+        else console.log(`Valid findings: ${String(result.findings.length)}`);
+        return;
+      }
+      for (const err of result.errors) console.error(style.error(err));
+      process.exitCode = 1;
+      return;
+    }
 
     let chosen = parsed.options.chosen;
     let scope = parsed.options.scope;

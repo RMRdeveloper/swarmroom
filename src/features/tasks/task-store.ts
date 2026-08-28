@@ -22,50 +22,50 @@ function isAbsent(err: unknown): boolean {
   return code === 'ENOENT' || code === 'ENOTDIR';
 }
 
-/** Prevents escaping the project .swarmroom/tasks tree via `..`. */
+/** Prevents escaping the project .swarmroom/tasks tree via `..`. Validates absolute paths too. */
 export function taskGraphPath(projectRoot: string, tasksFile: string): string {
   if (tasksFile.length === 0) throw new Error('tasksFile must be a non-empty string');
-  if (isAbsolute(tasksFile)) return tasksFile;
   if (tasksFile.includes('\0')) throw new Error('tasksFile must not contain null bytes');
   const normalized = tasksFile.replaceAll('\\', '/');
   const parts = normalized.split('/');
   for (const p of parts) {
     if (p === '..') throw new Error('tasksFile must not contain `..`');
   }
+  if (isAbsolute(tasksFile)) return normalized;
   return join(projectRoot, TASKS_DIR, TASKS_SUBDIR, tasksFile);
 }
 
 function parseBlock(lines: readonly string[], blockIndex: number, startLine: number): Task {
-  const record = parseBlockRecord(lines, blockIndex, startLine, 'bloque');
-  assertValidKeys(record, blockIndex, 'bloque');
+  const record = parseBlockRecord(lines, blockIndex, startLine, 'block');
+  assertValidKeys(record, blockIndex, 'block');
 
   for (const key of REQUIRED_KEYS) {
-    if (!record.has(key)) throw new Error(`bloque ${String(blockIndex)}: falta campo "${key}"`);
+    if (!record.has(key)) throw new Error(`block ${String(blockIndex)}: missing field "${key}"`);
   }
 
   const idValue = record.get('id');
-  if (idValue === undefined) throw new Error(`bloque ${String(blockIndex)}: falta campo "id"`);
+  if (idValue === undefined) throw new Error(`block ${String(blockIndex)}: missing field "id"`);
   const idRaw = idValue.trim();
   if (idRaw.length === 0)
-    throw new Error(`bloque ${String(blockIndex)}: id debe ser string no vacío`);
+    throw new Error(`block ${String(blockIndex)}: id must be a non-empty string`);
   const titleValue = record.get('title');
   if (titleValue === undefined)
-    throw new Error(`bloque ${String(blockIndex)}: falta campo "title"`);
+    throw new Error(`block ${String(blockIndex)}: missing field "title"`);
   const titleRaw = titleValue.trim();
   if (titleRaw.length === 0)
-    throw new Error(`bloque ${String(blockIndex)}: title debe ser string no vacío`);
+    throw new Error(`block ${String(blockIndex)}: title must be a non-empty string`);
 
   const statusValue = record.get('status');
   if (statusValue === undefined)
-    throw new Error(`bloque ${String(blockIndex)}: falta campo "status"`);
+    throw new Error(`block ${String(blockIndex)}: missing field "status"`);
   const statusRaw = statusValue.trim();
   if (!isTaskStatus(statusRaw))
-    throw new Error(`bloque ${String(blockIndex)}: status inválido "${statusRaw}"`);
+    throw new Error(`block ${String(blockIndex)}: invalid status "${statusRaw}"`);
   const status: TaskStatus = statusRaw;
 
   const dependsOnValue = record.get('dependsOn');
   if (dependsOnValue === undefined)
-    throw new Error(`bloque ${String(blockIndex)}: falta campo "dependsOn"`);
+    throw new Error(`block ${String(blockIndex)}: missing field "dependsOn"`);
   const dependsOnRaw = dependsOnValue;
   const dependsOn: readonly string[] =
     dependsOnRaw.trim() === '-' ? [] : splitList(dependsOnRaw, ',', 'dependsOn', blockIndex);
@@ -81,7 +81,7 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
   if (agentRaw !== undefined) {
     const v = agentRaw.trim();
     if (v.length === 0)
-      throw new Error(`bloque ${String(blockIndex)}: agent debe ser string no vacío`);
+      throw new Error(`block ${String(blockIndex)}: agent must be a non-empty string`);
     agent = v;
   }
 
@@ -90,8 +90,7 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
   if (filesRaw !== undefined) {
     const t = filesRaw.trim();
     if (t === '-') files = undefined;
-    else if (t.length === 0)
-      throw new Error(`bloque ${String(blockIndex)}: files no puede ser vacío`);
+    else if (t.length === 0) throw new Error(`block ${String(blockIndex)}: files cannot be empty`);
     else files = splitList(filesRaw, ',', 'files', blockIndex);
   }
 
@@ -101,7 +100,7 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
     const t = acceptanceRaw.trim();
     if (t === '-') acceptance = undefined;
     else if (t.length === 0)
-      throw new Error(`bloque ${String(blockIndex)}: acceptance no puede ser vacío`);
+      throw new Error(`block ${String(blockIndex)}: acceptance cannot be empty`);
     else acceptance = splitList(acceptanceRaw, ';', 'acceptance', blockIndex);
   }
 
@@ -110,7 +109,7 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
   if (resultRaw !== undefined) {
     const v = resultRaw.trim();
     if (v.length === 0)
-      throw new Error(`bloque ${String(blockIndex)}: result debe ser string no vacío`);
+      throw new Error(`block ${String(blockIndex)}: result must be a non-empty string`);
     result = v;
   }
 
@@ -119,7 +118,7 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
   if (errorRaw !== undefined) {
     const v = errorRaw.trim();
     if (v.length === 0)
-      throw new Error(`bloque ${String(blockIndex)}: error debe ser string no vacío`);
+      throw new Error(`block ${String(blockIndex)}: error must be a non-empty string`);
     error = v;
   }
 
@@ -128,10 +127,10 @@ function parseBlock(lines: readonly string[], blockIndex: number, startLine: num
   if (attemptsRaw !== undefined) {
     const v = attemptsRaw.trim();
     if (!/^-?\d+$/.test(v))
-      throw new Error(`bloque ${String(blockIndex)}: attempts debe ser entero >=0, got "${v}"`);
+      throw new Error(`block ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
     const n = Number(v);
     if (!Number.isInteger(n) || n < 0)
-      throw new Error(`bloque ${String(blockIndex)}: attempts debe ser entero >=0, got "${v}"`);
+      throw new Error(`block ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
     attempts = n;
   }
 
@@ -155,9 +154,7 @@ export function parseTaskGraph(raw: string): TaskGraph {
   const normalized = normalizeRaw(raw);
   const trimmedStart = normalized.trimStart();
   if (trimmedStart.startsWith('{') || trimmedStart.startsWith('[')) {
-    throw new Error(
-      'formato JSON legacy no soportado — se esperaba .tasks en bloques campo: valor',
-    );
+    throw new Error('legacy JSON format not supported — expected .tasks blocks of field: value');
   }
 
   if (normalized.trim() === '') return createGraph([]);

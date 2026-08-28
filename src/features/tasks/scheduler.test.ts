@@ -266,3 +266,18 @@ describe('fake pipeline run', () => {
     assert.equal(taskById(graph, 'T3').status, 'completed');
   });
 });
+
+describe('selectRunnable fileless edge', () => {
+  it('dos writers fileless no corren en paralelo (solo el primero)', () => {
+    const graph = createGraph([
+      task({ id: 'T1', agent: 'sw-implementer' }),
+      task({ id: 'T2', agent: 'sw-fixer' }),
+      task({ id: 'T3', agent: 'sw-implementer', files: ['a.ts'] }),
+      task({ id: 'T4', agent: 'sw-verifier' }),
+    ]);
+    assert.deepEqual(
+      selectRunnable(graph).map((t) => t.id),
+      ['T1', 'T4'],
+    );
+  });
+});

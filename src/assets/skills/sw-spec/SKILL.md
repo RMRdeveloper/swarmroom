@@ -9,7 +9,7 @@ disable-model-invocation: true
 ---
 
 Write a single Markdown specification for the requested feature or change and
-store it under `docs/specs/` in the target project root. Do not implement
+store it under `.swarmroom/specs/` in the target project root. Do not implement
 anything; end by handing off to `sw-pipeline`.
 
 ## Project root
@@ -44,17 +44,15 @@ explicit questions.
 
 ## Spec file
 
-One file per request: `docs/specs/<slug>.md` under the target project root,
+One file per request: `.swarmroom/specs/<slug>.md` under the target project root,
 where `<slug>` is a kebab-case name derived from the spec title.
 
 If the file already exists, stop: do not overwrite silently and do not
 auto-suffix. Offer the user the choice to confirm an update or pick another
 slug.
 
-The spec is plain Markdown, no frontmatter, no status fields. Write it in the
-language of the user's request; keep technical terms, paths, and
-`Given/When/Then` syntax as they exist in the repo. Translate section
-headings to match the language when they are not English.
+The spec is plain Markdown, no frontmatter, no status fields. Always write in English; keep technical terms, paths, and
+`Given/When/Then` syntax as they exist in the repo. Keep section headings in English.
 
 Template (omit any section that would be empty):
 
@@ -102,11 +100,12 @@ the user confirms the draft; never hide them.
 ## Scope of writes
 
 The only file this skill may create or update is the spec under
-`docs/specs/`. Do not touch code, other documentation, `.swarmroom/tasks/`,
+`.swarmroom/specs/`. Do not touch code, other documentation, `.swarmroom/tasks/`,
+and keep it separate from the project's real `docs/` documentation.
 or any implementation agent.
 
 ## Handoff
 
 After writing, report the created path and suggest the next step:
 
-`/sw-pipeline` with `docs/specs/<slug>.md` as the reference.
+`/sw-pipeline` with `.swarmroom/specs/<slug>.md` as the reference.

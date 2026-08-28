@@ -178,3 +178,33 @@ describe('isComplete', () => {
     assert.equal(isComplete(createGraph([task({ id: 'T1', status: 'running' })])), false);
   });
 });
+
+describe('propagateFailure via completed (transitive fail-closed)', () => {
+  it('blocks transitive dependents even when intermediate is completed', () => {
+    const graph = createGraph([
+      task({ id: 'T1', status: 'failed' }),
+      task({ id: 'T2', status: 'completed', dependsOn: ['T1'] }),
+      task({ id: 'T3', status: 'pending', dependsOn: ['T2'] }),
+      task({ id: 'T4', status: 'ready', dependsOn: ['T2'] }),
+      task({ id: 'T5', status: 'pending' }),
+    ]);
+    const next = propagateFailure(graph);
+    assert.equal(taskById(next, 'T3').status, 'blocked');
+    assert.equal(taskById(next, 'T4').status, 'blocked');
+    assert.equal(taskById(next, 'T2').status, 'completed');
+    assert.equal(taskById(next, 'T5').status, 'pending');
+  });
+
+  it('isComplete and readyTasks consider propagated graph via completed', () => {
+    const graph = createGraph([
+      task({ id: 'T1', status: 'failed' }),
+      task({ id: 'T2', status: 'completed', dependsOn: ['T1'] }),
+      task({ id: 'T3', status: 'pending', dependsOn: ['T2'] }),
+    ]);
+    assert.deepEqual(
+      readyTasks(graph).map((t) => t.id),
+      [],
+    );
+    assert.equal(isComplete(graph), true);
+  });
+});

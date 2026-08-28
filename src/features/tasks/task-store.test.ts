@@ -33,7 +33,7 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
     assert.deepEqual(parsed, graph);
   });
 
-  it('round-trips task mínimo', () => {
+  it('round-trips minimal task', () => {
     const graph = createGraph([task({ id: 'T1', title: 'Solo' })]);
     const raw = serializeTaskGraph(graph);
     assert.match(raw, /id: T1/);
@@ -44,7 +44,7 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
     assert.deepEqual(parsed, graph);
   });
 
-  it('round-trips todos los campos', () => {
+  it('round-trips all fields', () => {
     const g2 = createGraph([
       task({
         id: 'T1',
@@ -62,86 +62,86 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
     assert.deepEqual(parsed, g2);
   });
 
-  it('maneja deps múltiples con espacios', () => {
+  it('handles multiple deps with spaces', () => {
     const raw = `id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T3\nstatus: pending\ndependsOn: -\ntitle: C\n\nid: T4\nstatus: pending\ndependsOn: -\ntitle: D\n\nid: T2\nstatus: pending\ndependsOn: T1, T3 , T4\ntitle: B\n`;
     const graph = parseTaskGraph(raw);
     assert.deepEqual(graph.tasks[3]?.dependsOn, ['T1', 'T3', 'T4']);
   });
 
-  it('rechaza bloque malformado (línea sin ": ")', () => {
+  it('rejects malformed block (line sin ": ")', () => {
     assert.throws(
       () => parseTaskGraph('id T1\nstatus: pending\ndependsOn: -\ntitle: A\n'),
-      /bloque 1 línea 1: línea malformada/,
+      /block 1 line 1: malformed line/,
     );
   });
 
-  it('rechaza campo desconocido', () => {
+  it('rejects unknown field', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\ntranscript: nope\n'),
-      /bloque 1: clave desconocida "transcript"/,
+      /block 1: unknown key "transcript"/,
     );
   });
 
-  it('rechaza clave duplicada', () => {
+  it('rejects duplicate key', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nid: T2\n'),
-      /bloque 1: clave duplicada "id"/,
+      /block 1: duplicate key "id"/,
     );
   });
 
-  it('rechaza status inválido', () => {
+  it('rejects invalid status', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: done\ndependsOn: -\ntitle: A\n'),
-      /bloque 1: status inválido "done"/,
+      /block 1: invalid status "done"/,
     );
   });
 
-  it('rechaza falta de campo requerido', () => {
+  it('rejects missing required field', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ntitle: A\n'),
-      /bloque 1: falta campo "dependsOn"/,
+      /block 1: missing field "dependsOn"/,
     );
     assert.throws(
       () => parseTaskGraph('status: pending\ndependsOn: -\ntitle: A\n'),
-      /bloque 1: falta campo "id"/,
+      /block 1: missing field "id"/,
     );
   });
 
-  it('rechaza dependsOn con elemento vacío', () => {
+  it('rejects dependsOn with empty element', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: T1, , T2\ntitle: A\n'),
-      /bloque 1: dependsOn contiene elemento vacío/,
+      /block 1: dependsOn contains empty element/,
     );
   });
 
-  it('rechaza mezcla de "-" con valores', () => {
+  it('rejects mixing "-" with values', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -, T1\ntitle: A\n'),
-      /bloque 1: dependsOn no puede mezclar/,
+      /block 1: dependsOn cannot mix/,
     );
   });
 
-  it('rechaza attempts inválido', () => {
+  it('rejects invalid attempts', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nattempts: two\n'),
-      /bloque 1: attempts debe ser entero/,
+      /block 1: attempts must be integer/,
     );
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nattempts: -1\n'),
-      /bloque 1: attempts debe ser entero/,
+      /block 1: attempts must be integer/,
     );
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nattempts: 1.5\n'),
-      /bloque 1: attempts debe ser entero/,
+      /block 1: attempts must be integer/,
     );
   });
 
-  it('archivo vacío es grafo vacío', () => {
+  it('empty file is empty graph', () => {
     assert.deepEqual(parseTaskGraph(''), createGraph([]));
     assert.deepEqual(parseTaskGraph('   \n\n  \n'), createGraph([]));
   });
 
-  it('tolerates extra blank lines y trailing newline', () => {
+  it('tolerates extra blank lines and trailing newline', () => {
     const raw =
       '\n\nid: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\n\nid: T2\nstatus: pending\ndependsOn: T1\ntitle: B\n\n';
     const graph = parseTaskGraph(raw);
@@ -149,24 +149,24 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
     assert.equal(graph.tasks[1]?.dependsOn[0], 'T1');
   });
 
-  it('rechaza JSON legacy', () => {
-    assert.throws(() => parseTaskGraph('{"tasks": []}'), /formato JSON legacy no soportado/);
-    assert.throws(() => parseTaskGraph('  [1,2,3]'), /formato JSON legacy no soportado/);
+  it('rejects JSON legacy', () => {
+    assert.throws(() => parseTaskGraph('{"tasks": []}'), /legacy JSON format not supported/);
+    assert.throws(() => parseTaskGraph('  [1,2,3]'), /legacy JSON format not supported/);
   });
 
-  it('serializa sentinel "-" para dependsOn vacío', () => {
+  it('serializes sentinel "-" para dependsOn vacío', () => {
     const graph = createGraph([task({ id: 'T1' })]);
     const raw = serializeTaskGraph(graph);
     assert.match(raw, /dependsOn: -/);
     assert.equal(raw.endsWith('\n'), true);
   });
 
-  it('description fallback: si falta usa title', () => {
+  it('description fallback: uses title if missing', () => {
     const graph = parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: Solo title\n');
     assert.equal(graph.tasks[0]?.description, 'Solo title');
   });
 
-  it('no serializa description si es igual a title', () => {
+  it('does not serialize description if equal to title', () => {
     const graph = createGraph([task({ id: 'T1', title: 'Same', description: 'Same' })]);
     const raw = serializeTaskGraph(graph);
     assert.equal(raw.includes('description:'), false);
@@ -174,10 +174,10 @@ describe('parseTaskGraph / serializeTaskGraph', () => {
     assert.equal(parsed.tasks[0]?.description, 'Same');
   });
 
-  it('reporta bloque correcto sin invalidar otros', () => {
+  it('reports correct block without invalidating others', () => {
     const raw =
       'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T2\nstatus: bogus\ndependsOn: -\ntitle: B\n';
-    assert.throws(() => parseTaskGraph(raw), /bloque 2: status inválido "bogus"/);
+    assert.throws(() => parseTaskGraph(raw), /block 2: invalid status "bogus"/);
   });
 
   it('delegates duplicados/ciclos/deps inexistentes a createGraph', () => {

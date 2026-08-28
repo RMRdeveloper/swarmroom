@@ -1,24 +1,183 @@
 #!/usr/bin/env node
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const DEFAULT_GLOB = 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts';
 const DEFAULT_ALLOW = 'eslint,global';
 
+// Centralized regex patterns — single source of truth.
+// - SINGLE: line starting with slash-slash (JSDoc // is forbidden, only slash-star-star JSDoc allowed)
+//   We check ^\s*// so URLs like https mid-line are not flagged.
+// - BLOCK: line starting with slash-star not followed by * — precisely flags /* but allows /** JSDoc.
+//   Previous ^\s*\/\*[^*] failed for slash-star-newline; (?!\*) handles it.
+// - TODO: word-boundary TODO not followed by #digits on same line — avoids TODOS, TODO #123 is allowed.
+// - ALLOW: built dynamically from --allow list; matches ^\s*//\s*(eslint|global)\b
+const PATTERNS = {
+  SINGLE: /^\s*\/\//,
+  BLOCK: /^\s*\/\*(?!\*)/,
+  TODO: /\bTODO\b(?![^\n]*#\d)/,
+};
+
+/** Build allowlist regex from comma-separated list like "eslint,global". */
+function buildAllowRe(allowList) {
+  const allow = allowList
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (allow.length === 0) return null;
+  return new RegExp(
+    `^\\s*//\\s*(?:${allow.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
+  );
+}
+
+/** True if line is allowlisted (// eslint, // global). */
+function isAllowed(line, allowRe) {
+  return allowRe ? allowRe.test(line) : false;
+}
+
+/**
+ * Extra precision: // eslint-disable without " -- reason" is still a violation
+ * even if allowlisted. Enforces "-- reason" description.
+ */
+function isEslintDisableWithoutReason(line) {
+  if (!/\beslint-disable/.test(line)) return false;
+  return !/--\s+.+/.test(line);
+}
+
+/**
+ * Core predicate — single place for all violation logic.
+ * isTestFile: only /* and TODO (as comment) are flagged, // is tolerated.
+ */
+function isViolation(line, isTestFile, allowRe) {
+  const isSingle = PATTERNS.SINGLE.test(line);
+  const isBlock = PATTERNS.BLOCK.test(line);
+  const hasTodo = PATTERNS.TODO.test(line);
+  // TODO only counts when it appears inside a comment line
+  const isTodoInComment = hasTodo && (isSingle || isBlock);
+
+  if (isTestFile) {
+    if (isBlock) return true;
+    if (isTodoInComment) return true;
+    return false;
+  }
+
+  if (isSingle) {
+    if (isAllowed(line, allowRe)) {
+      // allowlisted but eslint-disable still needs "-- reason"
+      if (isEslintDisableWithoutReason(line)) return true;
+      return false;
+    }
+    return true;
+  }
+  if (isBlock) return true;
+  if (isTodoInComment) return true;
+  return false;
+}
+
+/** Collect violations from an array of lines for one file. */
+function collectViolationsFromLines(lines, file, isTestFile, allowRe) {
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    if (isViolation(line, isTestFile, allowRe)) {
+      out.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
+    }
+  }
+  return out;
+}
+
+const WHY_RE = /workaround|invariant|hazard|WARNING|NOTE|HACK/i;
+
+function isDeletableCommentText(text) {
+  if (WHY_RE.test(text)) return false;
+  return text.trim().length < 40;
+}
+
+function toJSDocText(raw) {
+  const t = raw.trim();
+  if (t.length === 0) return '';
+  return t;
+}
+
+function fixLine(line, isTestFile, allowRe) {
+  if (!isViolation(line, isTestFile, allowRe)) return line;
+  const indent = (line.match(/^\s*/) ?? [''])[0] ?? '';
+  if (PATTERNS.BLOCK.test(line)) {
+    let fixed = line.replace(/^\s*\/\*/, '/**');
+    fixed = fixed.replace(/\bTODO\b(?![^\n]*#\d)/, 'TODO #000 --');
+    return fixed;
+  }
+  if (PATTERNS.SINGLE.test(line)) {
+    if (isEslintDisableWithoutReason(line)) return `${line.trimEnd()} -- reason`;
+    const body = line.replace(/^\s*\/\/\s?/, '');
+    const bodyFixed = body.replace(/\bTODO\b(?![^\n]*#\d)/, 'TODO #000 --');
+    if (isDeletableCommentText(bodyFixed)) return null;
+    return `${indent}/** ${toJSDocText(bodyFixed)} */`;
+  }
+  if (PATTERNS.TODO.test(line)) return line.replace(/\bTODO\b(?![^\n]*#\d)/, 'TODO #000 --');
+  return line;
+}
+
+function fixFileContent(content, isTestFile, allowRe) {
+  const lines = content.split('\n');
+  let fixedCount = 0;
+  const nextLines = [];
+  for (const line of lines) {
+    if (!isViolation(line, isTestFile, allowRe)) {
+      nextLines.push(line);
+      continue;
+    }
+    const fixed = fixLine(line, isTestFile, allowRe);
+    if (fixed === null) {
+      fixedCount++;
+      continue;
+    }
+    if (fixed !== line) fixedCount++;
+    nextLines.push(fixed);
+  }
+  return { nextContent: nextLines.join('\n'), fixedCount };
+}
+
+function collectFixes(globs, allowList, dryRun) {
+  const files = expandGlob(globs);
+  const allowRe = buildAllowRe(allowList);
+  let totalFixed = 0;
+  const changed = [];
+  for (const file of files) {
+    const content = readFileSync(file, 'utf8');
+    const isTestFile = file.endsWith('.test.ts');
+    const { nextContent, fixedCount } = fixFileContent(content, isTestFile, allowRe);
+    if (fixedCount === 0) continue;
+    totalFixed += fixedCount;
+    changed.push({ file, fixedCount });
+    if (!dryRun) writeFileSync(file, nextContent, 'utf8');
+  }
+  return { totalFixed, changed };
+}
+
 function parseArgs(argv) {
-  const out = { staged: false, all: false, glob: DEFAULT_GLOB, allow: DEFAULT_ALLOW };
+  const out = {
+    staged: false,
+    all: false,
+    glob: DEFAULT_GLOB,
+    allow: DEFAULT_ALLOW,
+    fix: false,
+    dryRun: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--staged') out.staged = true;
     else if (a === '--all') out.all = true;
+    else if (a === '--fix') out.fix = true;
+    else if (a === '--dry-run') out.dryRun = true;
     else if (a === '--glob') out.glob = argv[++i] ?? '';
     else if (a.startsWith('--glob=')) out.glob = a.slice('--glob='.length);
     else if (a === '--allow') out.allow = argv[++i] ?? '';
     else if (a.startsWith('--allow=')) out.allow = a.slice('--allow='.length);
     else if (a === '--help' || a === '-h') {
       console.log(
-        `Usage: node scripts/check-comments.mjs [--staged|--all] [--glob "a,b"] [--allow "eslint,global"]`,
+        `Usage: node scripts/check-comments.mjs [--staged|--all] [--fix [--dry-run]] [--glob "a,b"] [--allow "eslint,global"]`,
       );
       process.exit(0);
     }
@@ -106,15 +265,7 @@ function getStagedHunks(globs, allowList) {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const allow = allowList
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const allowRe = allow.length
-    ? new RegExp(
-        `^\\s*//\\s*(?:${allow.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
-      )
-    : null;
+  const allowRe = buildAllowRe(allowList);
 
   const violations = [];
   let currentFile = '';
@@ -136,42 +287,7 @@ function getStagedHunks(globs, allowList) {
         lineNum++;
         continue;
       }
-      if (isTestFile) {
-        if (/^\s*\/\*[^*]/.test(content)) {
-          violations.push({
-            file: currentFile,
-            line: lineNum,
-            text: content.trim(),
-            rule: 'Comments',
-          });
-        } else if (/TODO(?!.*#\d)/.test(content)) {
-          violations.push({
-            file: currentFile,
-            line: lineNum,
-            text: content.trim(),
-            rule: 'Comments',
-          });
-        }
-        lineNum++;
-        continue;
-      }
-      if (/^\s*\/\//.test(content)) {
-        if (!allowRe || !allowRe.test(content)) {
-          violations.push({
-            file: currentFile,
-            line: lineNum,
-            text: content.trim(),
-            rule: 'Comments',
-          });
-        }
-      } else if (/^\s*\/\*[^*]/.test(content)) {
-        violations.push({
-          file: currentFile,
-          line: lineNum,
-          text: content.trim(),
-          rule: 'Comments',
-        });
-      } else if (/TODO(?!.*#\d)/.test(content)) {
+      if (isViolation(content, isTestFile, allowRe)) {
         violations.push({
           file: currentFile,
           line: lineNum,
@@ -188,49 +304,41 @@ function getStagedHunks(globs, allowList) {
 }
 
 function getAllFilesViolations(globs, allowList) {
-  const globsArr = globs
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
   const files = expandGlob(globs);
-  const allow = allowList
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const allowRe = allow.length
-    ? new RegExp(
-        `^\\s*//\\s*(?:${allow.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`,
-      )
-    : null;
+  const allowRe = buildAllowRe(allowList);
+
   const violations = [];
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
     const lines = content.split('\n');
     const isTestFile = file.endsWith('.test.ts');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i] ?? '';
-      if (isTestFile) {
-        if (/^\s*\/\*[^*]/.test(line))
-          violations.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
-        else if (/TODO(?!.*#\d)/.test(line))
-          violations.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
-        continue;
-      }
-      if (/^\s*\/\//.test(line)) {
-        if (allowRe && allowRe.test(line)) continue;
-        violations.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
-      } else if (/^\s*\/\*[^*]/.test(line)) {
-        violations.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
-      } else if (/TODO(?!.*#\d)/.test(line)) {
-        violations.push({ file, line: i + 1, text: line.trim(), rule: 'Comments' });
-      }
-    }
+    violations.push(...collectViolationsFromLines(lines, file, isTestFile, allowRe));
   }
   return violations;
 }
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.fix) {
+    const { totalFixed, changed } = collectFixes(args.glob, args.allow, args.dryRun);
+    if (totalFixed === 0) {
+      console.log('check-comments: ok');
+      process.exit(0);
+    }
+    if (args.dryRun) {
+      console.log(
+        `check-comments: clean preview ${String(totalFixed)} fix(es) in ${String(changed.length)} file(s)`,
+      );
+      for (const c of changed) console.log(`  ${c.file}: ${String(c.fixedCount)}`);
+      console.log('hint: run with --fix to apply');
+      process.exit(1);
+    }
+    console.log(
+      `check-comments: clean ${String(totalFixed)} fix(es) in ${String(changed.length)} file(s)`,
+    );
+    for (const c of changed) console.log(`  ${c.file}: ${String(c.fixedCount)}`);
+    process.exit(0);
+  }
   const violations = args.staged
     ? getStagedHunks(args.glob, args.allow)
     : getAllFilesViolations(args.glob, args.allow);
@@ -243,7 +351,7 @@ function main() {
   const locs = violations.map((v) => `${v.file}:${String(v.line)}`).join(', ');
   console.error(`check-comments: ${String(violations.length)} violation(s)`);
   console.error(
-    `FINDING 1 | Medium | ${locs} | Comments | ${String(violations.length)} narrative // or /* or TODO without # in diff; convert to /** JSDoc */ or delete (quick-test: if deleting it leaves code just as clear)`,
+    `FINDING 1 | Medium | ${locs} | Comments | ${String(violations.length)} narrative // or /* or TODO without # in diff; convert to /** JSDoc or delete (quick-test: if deleting it leaves code just as clear)`,
   );
   for (const v of violations) {
     console.error(`  ${v.file}:${String(v.line)} | ${v.text}`);
@@ -251,7 +359,7 @@ function main() {
   console.error(
     `\nAllowlist: // ${args.allow} ; JSDoc /** */ only for src. Tests laxo: only TODO without # and /*.`,
   );
-  console.error(`Hint: run with --glob "src/**/*.ts" for other projects.`);
+  console.error(`Hint: run with --glob "src/**/*.ts" for other projects. Use --fix to auto-clean.`);
   process.exit(1);
 }
 

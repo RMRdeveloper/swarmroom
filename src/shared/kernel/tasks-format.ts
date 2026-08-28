@@ -1,4 +1,4 @@
-export const LINE_RE = /^([A-Za-z]+): (.*)$/;
+export const LINE_RE = /^([A-Za-z][A-Za-z0-9_-]*): (.*)$/;
 
 export const VALID_KEYS = new Set([
   'id',
@@ -40,7 +40,10 @@ export interface Block {
 }
 
 export function normalizeRaw(raw: string): string {
-  return raw.replace(/^\uFEFF/, '').replaceAll('\r\n', '\n');
+  return raw
+    .replace(/^\uFEFF/, '')
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n');
 }
 
 export function splitIntoBlocks(normalized: string): readonly Block[] {
@@ -70,17 +73,16 @@ export function splitList(
   sep: string,
   field: string,
   block: number,
-  prefix = 'bloque',
+  prefix = 'block',
 ): readonly string[] {
-  if (value === '-') return [];
-  if (value.trim() === '')
-    throw new Error(`${prefix} ${String(block)}: ${field} no puede ser vacío`);
+  if (value.trim() === '-') return [];
+  if (value.trim() === '') throw new Error(`${prefix} ${String(block)}: ${field} cannot be empty`);
   const parts = value.split(sep).map((part) => part.trim());
   for (const part of parts) {
     if (part.length === 0)
-      throw new Error(`${prefix} ${String(block)}: ${field} contiene elemento vacío`);
+      throw new Error(`${prefix} ${String(block)}: ${field} contains empty element`);
     if (part === '-')
-      throw new Error(`${prefix} ${String(block)}: ${field} no puede mezclar "-" con valores`);
+      throw new Error(`${prefix} ${String(block)}: ${field} cannot mix "-" with values`);
   }
   return parts;
 }
@@ -89,7 +91,7 @@ export function parseBlockRecord(
   lines: readonly string[],
   blockIndex: number,
   startLine: number,
-  prefix = 'bloque',
+  prefix = 'block',
 ): ReadonlyMap<string, string> {
   const record = new Map<string, string>();
   for (const [index, line] of lines.entries()) {
@@ -97,16 +99,15 @@ export function parseBlockRecord(
     const match = LINE_RE.exec(line);
     if (!match)
       throw new Error(
-        `${prefix} ${String(blockIndex)} línea ${String(globalLine)}: línea malformada "${line}"`,
+        `${prefix} ${String(blockIndex)} line ${String(globalLine)}: malformed line "${line}"`,
       );
     const key = match[1];
     const val = match[2];
     if (key === undefined || val === undefined)
       throw new Error(
-        `${prefix} ${String(blockIndex)} línea ${String(globalLine)}: línea malformada "${line}"`,
+        `${prefix} ${String(blockIndex)} line ${String(globalLine)}: malformed line "${line}"`,
       );
-    if (record.has(key))
-      throw new Error(`${prefix} ${String(blockIndex)}: clave duplicada "${key}"`);
+    if (record.has(key)) throw new Error(`${prefix} ${String(blockIndex)}: duplicate key "${key}"`);
     record.set(key, val);
   }
   return record;
@@ -115,10 +116,10 @@ export function parseBlockRecord(
 export function assertValidKeys(
   record: ReadonlyMap<string, string>,
   blockIndex: number,
-  prefix = 'bloque',
+  prefix = 'block',
 ): void {
   for (const key of record.keys()) {
     if (!VALID_KEYS.has(key))
-      throw new Error(`${prefix} ${String(blockIndex)}: clave desconocida "${key}"`);
+      throw new Error(`${prefix} ${String(blockIndex)}: unknown key "${key}"`);
   }
 }

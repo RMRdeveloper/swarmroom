@@ -82,7 +82,7 @@ function requireGraph(graph: TaskGraph | null, dir: string, tasksFile: string): 
 }
 
 function splitList(value: string, sep: string, field: string, block: number): readonly string[] {
-  return splitListKernel(value, sep, field, block, 'replan bloque');
+  return splitListKernel(value, sep, field, block, 'replan block');
 }
 
 async function readProposal(file: string): Promise<ReplanProposal> {
@@ -91,7 +91,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
   const trimmedStart = normalized.trimStart();
   if (trimmedStart.startsWith('{') || trimmedStart.startsWith('[')) {
     throw new Error(
-      'formato JSON legacy no soportado en propuesta — se esperaba bloques campo: valor',
+      'legacy JSON format not supported in proposal — expected blocks of field: value',
     );
   }
   if (normalized.trim() === '') return {};
@@ -103,7 +103,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
 
   for (const [bi, block] of blocks.entries()) {
     const n = bi + 1;
-    const rec = parseBlockRecord(block.lines, n, block.startLine, 'replan bloque');
+    const rec = parseBlockRecord(block.lines, n, block.startLine, 'replan block');
 
     const isDependencyBlock = rec.size === 2 && rec.has('id') && rec.has('dependsOn');
 
@@ -112,36 +112,36 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       for (const k of rec.keys()) {
         if (!allowed.has(k))
           throw new Error(
-            `replan bloque ${String(n)}: clave desconocida "${k}" (en bloque de dependencia solo id/dependsOn)`,
+            `replan block ${String(n)}: unknown key "${k}" (in dependency block only id/dependsOn)`,
           );
       }
-      if (!rec.has('id')) throw new Error(`replan bloque ${String(n)}: falta campo "id"`);
+      if (!rec.has('id')) throw new Error(`replan block ${String(n)}: missing field "id"`);
       if (!rec.has('dependsOn'))
-        throw new Error(`replan bloque ${String(n)}: falta campo "dependsOn"`);
+        throw new Error(`replan block ${String(n)}: missing field "dependsOn"`);
       const idRawDep = rec.get('id');
       const depRaw = rec.get('dependsOn');
       if (idRawDep === undefined || depRaw === undefined)
-        throw new Error(`replan bloque ${String(n)}: missing id/dependsOn`);
+        throw new Error(`replan block ${String(n)}: missing id/dependsOn`);
       const id = idRawDep.trim();
       const dep = depRaw.trim();
       if (id.length === 0)
-        throw new Error(`replan bloque ${String(n)}: id debe ser string no vacío`);
+        throw new Error(`replan block ${String(n)}: id must be a non-empty string`);
       if (dep.length === 0)
-        throw new Error(`replan bloque ${String(n)}: dependsOn debe ser string no vacío`);
+        throw new Error(`replan block ${String(n)}: dependsOn must be a non-empty string`);
       if (dep === '-')
-        throw new Error(`replan bloque ${String(n)}: dependsOn no puede ser "-" en dependencia`);
+        throw new Error(`replan block ${String(n)}: dependsOn cannot be "-" in dependency`);
       if (dep.includes(','))
-        throw new Error(`replan bloque ${String(n)}: dependsOn en dependencia debe ser un solo id`);
+        throw new Error(`replan block ${String(n)}: dependsOn in dependency must be a single id`);
       if (dep.includes(';'))
-        throw new Error(`replan bloque ${String(n)}: dependsOn en dependencia debe ser un solo id`);
+        throw new Error(`replan block ${String(n)}: dependsOn in dependency must be a single id`);
       addDependencies.push({ id, dependsOn: dep });
     } else {
       for (const k of rec.keys()) {
         if (!VALID_TASK_KEYS.has(k))
-          throw new Error(`replan bloque ${String(n)}: clave desconocida "${k}"`);
+          throw new Error(`replan block ${String(n)}: unknown key "${k}"`);
       }
       for (const k of ['id', 'title', 'status', 'dependsOn']) {
-        if (!rec.has(k)) throw new Error(`replan bloque ${String(n)}: falta campo "${k}"`);
+        if (!rec.has(k)) throw new Error(`replan block ${String(n)}: missing field "${k}"`);
       }
       const idRaw2 = rec.get('id');
       const titleRaw = rec.get('title');
@@ -153,24 +153,24 @@ async function readProposal(file: string): Promise<ReplanProposal> {
         statusRaw2 === undefined ||
         dependsOnRaw2 === undefined
       )
-        throw new Error(`replan bloque ${String(n)}: missing required field`);
+        throw new Error(`replan block ${String(n)}: missing required field`);
       const id = idRaw2.trim();
       const title = titleRaw.trim();
       const statusRaw = statusRaw2.trim();
       const dependsOnRaw = dependsOnRaw2;
       const descriptionRaw = rec.get('description');
       if (id.length === 0)
-        throw new Error(`replan bloque ${String(n)}: id debe ser string no vacío`);
+        throw new Error(`replan block ${String(n)}: id must be a non-empty string`);
       if (title.length === 0)
-        throw new Error(`replan bloque ${String(n)}: title debe ser string no vacío`);
+        throw new Error(`replan block ${String(n)}: title must be a non-empty string`);
       if (!isTaskStatus(statusRaw))
-        throw new Error(`replan bloque ${String(n)}: status inválido "${statusRaw}"`);
+        throw new Error(`replan block ${String(n)}: invalid status "${statusRaw}"`);
       const description =
         descriptionRaw !== undefined && descriptionRaw.trim().length > 0
           ? descriptionRaw.trim()
           : title;
       if (description.length === 0)
-        throw new Error(`replan bloque ${String(n)}: description debe ser string no vacío`);
+        throw new Error(`replan block ${String(n)}: description must be a non-empty string`);
       const dependsOn =
         dependsOnRaw.trim() === '-' ? [] : splitList(dependsOnRaw, ',', 'dependsOn', n);
       const agentRaw = rec.get('agent');
@@ -178,7 +178,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       if (agentRaw !== undefined) {
         const v = agentRaw.trim();
         if (v.length === 0)
-          throw new Error(`replan bloque ${String(n)}: agent debe ser string no vacío`);
+          throw new Error(`replan block ${String(n)}: agent must be a non-empty string`);
         agent = v;
       }
       let files: readonly string[] | undefined;
@@ -186,8 +186,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       if (filesRaw !== undefined) {
         const t = filesRaw.trim();
         if (t !== '-') {
-          if (t.length === 0)
-            throw new Error(`replan bloque ${String(n)}: files no puede ser vacío`);
+          if (t.length === 0) throw new Error(`replan block ${String(n)}: files cannot be empty`);
           files = splitList(filesRaw, ',', 'files', n);
         }
       }
@@ -197,7 +196,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
         const t = acceptanceRaw.trim();
         if (t !== '-') {
           if (t.length === 0)
-            throw new Error(`replan bloque ${String(n)}: acceptance no puede ser vacío`);
+            throw new Error(`replan block ${String(n)}: acceptance cannot be empty`);
           acceptance = splitList(acceptanceRaw, ';', 'acceptance', n);
         }
       }
@@ -206,7 +205,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       if (resultRaw !== undefined) {
         const v = resultRaw.trim();
         if (v.length === 0)
-          throw new Error(`replan bloque ${String(n)}: result debe ser string no vacío`);
+          throw new Error(`replan block ${String(n)}: result must be a non-empty string`);
         result = v;
       }
       let error: string | undefined;
@@ -214,7 +213,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       if (errorRaw !== undefined) {
         const v = errorRaw.trim();
         if (v.length === 0)
-          throw new Error(`replan bloque ${String(n)}: error debe ser string no vacío`);
+          throw new Error(`replan block ${String(n)}: error must be a non-empty string`);
         error = v;
       }
       let attempts: number | undefined;
@@ -222,10 +221,10 @@ async function readProposal(file: string): Promise<ReplanProposal> {
       if (attemptsRaw !== undefined) {
         const v = attemptsRaw.trim();
         if (!/^-?\d+$/.test(v))
-          throw new Error(`replan bloque ${String(n)}: attempts debe ser entero >=0, got "${v}"`);
+          throw new Error(`replan block ${String(n)}: attempts must be integer >=0, got "${v}"`);
         const num = Number(v);
         if (!Number.isInteger(num) || num < 0)
-          throw new Error(`replan bloque ${String(n)}: attempts debe ser entero >=0, got "${v}"`);
+          throw new Error(`replan block ${String(n)}: attempts must be integer >=0, got "${v}"`);
         attempts = num;
       }
 

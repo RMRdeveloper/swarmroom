@@ -33,7 +33,7 @@ export function isTaskStatus(value: string): value is TaskStatus {
   return (TASK_STATUSES as readonly string[]).includes(value);
 }
 
-/** DFS; returns the cycle path (including the repeated start) or null. */
+/** DFS; returns the cycle path (including the repeated start) or null. Fails fast on missing dep to align with createGraph. */
 export function detectCycle(tasks: readonly Task[]): readonly string[] | null {
   const byId = new Map<string, Task>();
   for (const task of tasks) byId.set(task.id, task);
@@ -53,6 +53,9 @@ export function detectCycle(tasks: readonly Task[]): readonly string[] | null {
     const task = byId.get(id);
     if (task) {
       for (const dep of task.dependsOn) {
+        if (!byId.has(dep)) {
+          throw new Error(`task ${task.id} depends on missing id: ${dep}`);
+        }
         const cycle = walk(dep);
         if (cycle) return cycle;
       }
@@ -115,8 +118,9 @@ function replaceTask(graph: TaskGraph, next: Task): TaskGraph {
 }
 
 export function readyTasks(graph: TaskGraph): readonly Task[] {
-  const byId = new Map(graph.tasks.map((t) => [t.id, t]));
-  return graph.tasks.filter((task) => {
+  const propagated = propagateFailure(graph);
+  const byId = new Map(propagated.tasks.map((t) => [t.id, t]));
+  return propagated.tasks.filter((task) => {
     if (task.status !== 'pending' && task.status !== 'ready') return false;
     return task.dependsOn.every((depId) => byId.get(depId)?.status === 'completed');
   });
@@ -134,8 +138,8 @@ export function withResult(
   files?: readonly string[],
 ): TaskGraph {
   const task = taskById(graph, id);
-  const { error: _error, ...rest } = task;
-  void _error;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- strip error on completion
+  const { error: _omit, ...rest } = task;
   return replaceTask(graph, {
     ...rest,
     status: 'completed',
@@ -154,7 +158,10 @@ export function withError(graph: TaskGraph, id: string, error: string): TaskGrap
   });
 }
 
-/** Any task that transitively depends on a failed task becomes blocked. */
+/** Any task that transitively depends on a failed task becomes blocked.
+ *  Preserves completed/failed nodes themselves but propagates through them
+ *  (fail-closed transitive semantics).
+ */
 export function propagateFailure(graph: TaskGraph): TaskGraph {
   const failed = new Set(graph.tasks.filter((t) => t.status === 'failed').map((t) => t.id));
   if (failed.size === 0) return graph;
@@ -170,8 +177,9 @@ export function propagateFailure(graph: TaskGraph): TaskGraph {
 
   const blocked = new Set<string>();
   const queue = [...failed];
-  while (queue.length > 0) {
-    const id = queue.shift();
+  let idx = 0;
+  while (idx < queue.length) {
+    const id = queue[idx++];
     if (id === undefined) continue;
     for (const child of dependents.get(id) ?? []) {
       if (failed.has(child) || blocked.has(child)) continue;
@@ -190,7 +198,8 @@ export function propagateFailure(graph: TaskGraph): TaskGraph {
   };
 }
 
-/** No tasks in pending|ready|running. Empty graph is complete. */
+/** No tasks in pending|ready|running. Empty graph is complete. Implicitly propagates failure to avoid deadlock. */
 export function isComplete(graph: TaskGraph): boolean {
-  return graph.tasks.every((t) => !OPEN_STATUSES.has(t.status));
+  const propagated = propagateFailure(graph);
+  return propagated.tasks.every((t) => !OPEN_STATUSES.has(t.status));
 }

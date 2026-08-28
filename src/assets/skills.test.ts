@@ -112,8 +112,8 @@ describe('sw-spec skill', () => {
     assert.match(frontmatter, /disable-model-invocation:/);
   });
 
-  it('stores specs under docs/specs in the target project root', () => {
-    assert.match(specSkill, /docs\/specs\//);
+  it('stores specs under .swarmroom/specs in the target project root', () => {
+    assert.match(specSkill, /\.swarmroom\/specs\//);
     assert.match(specSkill, /target project root/);
   });
 
@@ -130,9 +130,9 @@ describe('sw-spec skill', () => {
     assert.match(specSkill, /confirm an update or pick another/);
   });
 
-  it('writes plain markdown in the request language with the agreed sections', () => {
+  it('writes plain markdown in English with the agreed sections', () => {
     assert.match(specSkill, /plain Markdown, no frontmatter/);
-    assert.match(specSkill, /language of the user's request/);
+    assert.match(specSkill, /Always write in English/);
     for (const section of [
       '## Context',
       '## Goal',
@@ -158,9 +158,10 @@ describe('sw-spec skill', () => {
     assert.match(specSkill, /after explicit user confirmation/);
   });
 
-  it('limits writes to docs/specs and never touches code or tasks', () => {
+  it('limits writes to .swarmroom/specs and never touches code or tasks', () => {
     assert.match(specSkill, /only file this skill may create or update/);
     assert.match(specSkill, /Do not touch code, other documentation/);
+    assert.match(specSkill, /\.swarmroom\/specs\//);
     assert.match(specSkill, /\.swarmroom\/tasks\//);
   });
 
@@ -174,7 +175,7 @@ describe('sw-spec skill', () => {
     for (const target of targets) {
       const rewritten = target.rewriteSkill(specSkill);
       assert.ok(!rewritten.includes('\n'.repeat(3)), `${target.id}: triple newlines`);
-      assert.ok(rewritten.includes('docs/specs/'), `${target.id}: lost docs/specs`);
+      assert.ok(rewritten.includes('.swarmroom/specs/'), `${target.id}: lost .swarmroom/specs`);
       assert.ok(rewritten.includes('sw-pipeline'), `${target.id}: lost handoff`);
       if (target.id === 'cursor') {
         assert.match(rewritten, /^argument-hint:/m);

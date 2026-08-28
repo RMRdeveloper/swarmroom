@@ -38,6 +38,11 @@ export type ParseResult =
       readonly command: TasksCommand;
       readonly dir: string;
       readonly tasksFile: string;
+    }
+  | {
+      readonly kind: 'validate-findings';
+      readonly file: string;
+      readonly strict: boolean;
     };
 
 export type TasksCommand =
@@ -70,6 +75,7 @@ export function formatHelp(): string {
     ['-q, --quiet', 'suppress per-target summaries (opening/closing still print)'],
     ['tasks [command]', 'inspect or mutate the task graph'],
     ['--tasks-file <path>', 'task graph file under .swarmroom/tasks/ (required for tasks)'],
+    ['validate-findings --file <path> [--strict]', 'validate FINDING lines (deterministic)'],
     ['-h, --help', 'show this help'],
     ['-V, --version', 'print version'],
   ];
@@ -82,6 +88,7 @@ Usage:
   swarmroom [options]
   swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
   npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
+  swarmroom validate-findings --file <path> [--strict]
 
 Also:
   node src/cli.ts [options]
@@ -243,10 +250,53 @@ function parseTasksArgs(argv: readonly string[]): ParseResult {
   return { kind: 'error', message: `unknown tasks command: ${name}\n${HELP_HINT}` };
 }
 
+function parseValidateFindingsArgs(argv: readonly string[]): ParseResult {
+  let file: string | undefined;
+  let strict = false;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--file') {
+      if (file !== undefined) {
+        return { kind: 'error', message: `ambiguous repeated flag: --file\n${HELP_HINT}` };
+      }
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('-')) {
+        return { kind: 'error', message: `--file requires a path\n${HELP_HINT}` };
+      }
+      if (next.length === 0) {
+        return { kind: 'error', message: `--file requires a non-empty path\n${HELP_HINT}` };
+      }
+      if (next.includes('..')) {
+        return { kind: 'error', message: `--file must not contain \`..\`\n${HELP_HINT}` };
+      }
+      file = next;
+      i += 1;
+      continue;
+    }
+    if (a === '--strict') {
+      strict = true;
+      continue;
+    }
+    if (a === '--help' || a === '-h') return { kind: 'help' };
+    if (a === '--version' || a === '-V') return { kind: 'version' };
+    return {
+      kind: 'error',
+      message: `unknown option for validate-findings: ${String(a)}\n${HELP_HINT}`,
+    };
+  }
+  if (file === undefined) {
+    return { kind: 'error', message: `validate-findings requires --file <path>\n${HELP_HINT}` };
+  }
+  return { kind: 'validate-findings', file, strict };
+}
+
 /** Parse argv (without node/script). Validates unknown flags and --dir value. */
 export function parseArgs(argv: readonly string[]): ParseResult {
   if (argv[0] === 'tasks') {
     return parseTasksArgs(argv.slice(1));
+  }
+  if (argv[0] === 'validate-findings') {
+    return parseValidateFindingsArgs(argv.slice(1));
   }
 
   const picked: Target[] = [];

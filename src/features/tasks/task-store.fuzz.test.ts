@@ -18,50 +18,53 @@ describe('LLM synthetic broken outputs', () => {
   it('rejects missing space after colon', () => {
     assert.throws(
       () => parseTaskGraph('id:T1\nstatus: pending\ndependsOn: -\ntitle: A\n'),
-      /bloque 1 línea 1: línea malformada/,
+      /block 1 line 1: malformed line/,
     );
   });
 
   it('rejects wrong case DependsOn', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\nDependsOn: -\ntitle: A\n'),
-      /clave desconocida "DependsOn"|línea malformada/,
+      /unknown key "DependsOn"|malformed line/,
     );
   });
 
   it('rejects Deps alias', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\nDeps: -\ntitle: A\n'),
-      /clave desconocida "Deps"/,
+      /unknown key "Deps"/,
     );
   });
 
   it('rejects fences around blocks', () => {
     assert.throws(
       () => parseTaskGraph('```\nid: T1\nstatus: pending\ndependsOn: -\ntitle: A\n```\n'),
-      /línea malformada/,
+      /malformed line/,
     );
   });
 
   it('rejects T1: title style', () => {
-    assert.throws(() => parseTaskGraph('T1: title\n'), /línea malformada/);
+    assert.throws(() => parseTaskGraph('T1: title\n'), /malformed line|unknown key/);
   });
 
   it('rejects missing required status', () => {
-    assert.throws(() => parseTaskGraph('id: T1\ndependsOn: -\ntitle: A\n'), /falta campo "status"/);
+    assert.throws(
+      () => parseTaskGraph('id: T1\ndependsOn: -\ntitle: A\n'),
+      /missing field "status"/,
+    );
   });
 
   it('rejects trailing comma in files', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nfiles: a.ts,\n'),
-      /files contiene elemento vacío/,
+      /files contains empty element/,
     );
   });
 
   it('rejects acceptance with empty element via ;;', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: pending\ndependsOn: -\ntitle: A\nacceptance: a;; b\n'),
-      /acceptance contiene elemento vacío/,
+      /acceptance contains empty element/,
     );
   });
 
@@ -71,21 +74,21 @@ describe('LLM synthetic broken outputs', () => {
         parseTaskGraph(
           'id: T1\nstatus: pending\ndependsOn: -\ntitle: line one\ncontinued without colon\n',
         ),
-      /línea malformada/,
+      /malformed line/,
     );
   });
 
   it('rejects whitespace-only id', () => {
     assert.throws(
       () => parseTaskGraph('id:    \nstatus: pending\ndependsOn: -\ntitle: A\n'),
-      /id debe ser string no vacío/,
+      /id must be a non-empty string/,
     );
   });
 
   it('rejects case-mismatched status Pending', () => {
     assert.throws(
       () => parseTaskGraph('id: T1\nstatus: Pending\ndependsOn: -\ntitle: A\n'),
-      /status inválido/,
+      /invalid status/,
     );
   });
 
@@ -201,17 +204,17 @@ describe('error line numbers accuracy', () => {
   it('reports block 2 line 6 for second block bad status', () => {
     const raw =
       'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nid: T2\nstatus: bogus\ndependsOn: -\ntitle: B\n';
-    assert.throws(() => parseTaskGraph(raw), /bloque 2.*bogus/);
+    assert.throws(() => parseTaskGraph(raw), /block 2.*bogus/);
     try {
       parseTaskGraph(raw);
     } catch (error) {
       const msg = (error as Error).message;
-      assert.match(msg, /bloque 2/);
+      assert.match(msg, /block 2/);
     }
   });
 
   it('reports line malformed with global line', () => {
     const raw = 'id: T1\nstatus: pending\ndependsOn: -\ntitle: A\n\nbad line without colon\n';
-    assert.throws(() => parseTaskGraph(raw), /bloque 2 línea 6: línea malformada/);
+    assert.throws(() => parseTaskGraph(raw), /block 2 line 6: malformed line/);
   });
 });
