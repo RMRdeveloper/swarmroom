@@ -7,3 +7,5 @@ dist/
 .agents/
 /CODING_GUIDELINES.md
 .swarmroom/
+# Local Pi runtime state
+.atl/

@@ -13,8 +13,10 @@
   ],
   "scripts": {
     "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external",
-    "prepublishOnly": "npm run build && node scripts/sync-skills.mjs",
+    "prepublishOnly": "npm run build && node scripts/sync-artifacts.mjs && node scripts/sync-skills.mjs",
     "setup": "node src/cli.ts",
+    "sync:artifacts": "node scripts/sync-artifacts.mjs",
+    "sync:artifacts:check": "node scripts/sync-artifacts.mjs --check",
     "sync:skills": "node scripts/sync-skills.mjs",
     "sync:skills:check": "node scripts/sync-skills.mjs --check",
     "types": "tsc --noEmit",

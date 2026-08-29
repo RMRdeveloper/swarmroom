@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// GENERATED — do not edit, source: src/shared/kernel/findings-validator.ts
 import { existsSync, readFileSync } from 'node:fs';
 
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low'];
@@ -55,6 +56,15 @@ function validateSequentialNumbers(findings) {
     }
   }
   return errors;
+}
+
+function getFindingLines(input) {
+  const trimmed = input.trim();
+  if (trimmed === '' || trimmed === 'No findings') return [];
+  return trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 }
 
 function parseSingleLine(line, lineIndex) {
@@ -121,24 +131,26 @@ function parseSingleLine(line, lineIndex) {
   };
 }
 
-function validateFindings(input, opts) {
-  const trimmed = input.trim();
-  if (trimmed === '' || trimmed === 'No findings') {
-    return { valid: true, errors: [], findings: [] };
+function parseFindings(input) {
+  const lines = getFindingLines(input);
+  const findings = [];
+  for (const [i, line] of lines.entries()) {
+    const result = parseSingleLine(line, i + 1);
+    if (result.error) throw new Error(result.error);
+    if (result.finding) findings.push(result.finding);
   }
+  const seqErrors = validateSequentialNumbers(findings);
+  if (seqErrors.length > 0) throw new Error(seqErrors[0]);
+  return findings;
+}
 
-  const lines = trimmed
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
+function validateFindings(input, opts) {
+  const lines = getFindingLines(input);
   if (lines.length === 0) {
     return { valid: true, errors: [], findings: [] };
   }
-
   const findings = [];
   const errors = [];
-
   for (const [i, line] of lines.entries()) {
     const fields = splitPipeFields(line);
     if (!fields) {
@@ -154,11 +166,9 @@ function validateFindings(input, opts) {
     }
     if (result.finding) findings.push(result.finding);
   }
-
   for (const err of validateSequentialNumbers(findings)) {
     errors.push(err);
   }
-
   if (opts?.strict) {
     for (const f of findings) {
       const file = f.fileLine.split(':', 1)[0];
@@ -168,7 +178,6 @@ function validateFindings(input, opts) {
       }
     }
   }
-
   return { valid: errors.length === 0, errors, findings };
 }
 
