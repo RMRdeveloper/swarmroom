@@ -22,9 +22,34 @@ grilling recommendation into a decision the user did not accept. If no
 settled understanding was provided, stop and ask for the gate to be run
 before you plan.
 
+<!-- GENERATED from src/assets/artifacts/CODING_GUIDELINES.md — do not edit -->
+
 ## Baseline standards (apply when the repo defines nothing stricter)
 
 One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo ships its own docs, those win.
+
+| Do                                                 | Don't                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Early return on bad input                          | Pyramid `if/else` nesting                                                                   |
+| Explicit error, fail now                           | Multiple fallbacks that hide the real failure                                               |
+| One responsibility per unit                        | Validate + transform + persist + notify in one place                                        |
+| Extract when duplication repeats                   | Abstract before a second real use                                                           |
+| Ship the simplest solution for the current problem | Add layers, hooks, or config "just in case"                                                 |
+| Build only what's needed today                     | Add fields/params/branches for a future case that hasn't arrived                            |
+| Compose small, focused units                       | Build deep inheritance chains for unrelated behavior                                        |
+| Talk only to immediate collaborators               | Reach through several levels of another object's internal structure                         |
+| A function either does or returns, not both        | Mix a side effect into what looks like a getter                                             |
+| Validate once at the edge                          | Re-validate the same invariant in every layer                                               |
+| One validator per input                            | Two validators for the same body/query                                                      |
+| Let errors surface with context                    | Swallow errors in an empty or generic `catch`, or catch-and-continue as if nothing happened |
+| Return new values instead of mutating input        | Mutate parameters and hide the side effect from the caller                                  |
+| One consistent meaning per null/undefined          | Overload null/undefined to mean several different business states                           |
+| Inject dependencies so units are easy to test      | Hardcode dependencies that force hitting real infra to test                                 |
+| Inner layers depend on nothing outward             | Let domain logic import framework/DB/HTTP details directly                                  |
+| Names that reveal role or domain meaning           | Vague names (`data`, `info`, `temp`, `result`, `obj`)                                       |
+| Named const / enum / contract for domain literals  | Magic strings scattered through the codebase                                                |
+| Depend on interfaces/ports where variation is real | Couple a use case directly to a concrete implementation                                     |
+| Comments only for important non-obvious intent     | Narrating comments, noise, or stale TODOs                                                   |
 
 - Early return on bad input — no pyramid `if/else` nesting (guard clauses).
 - Explicit error, fail now — no fallback chain that hides the real failure (fail fast).
@@ -46,6 +71,21 @@ One line per rule of the `CODING_GUIDELINES.md` quick reference. When the repo s
 - Named const / enum / contract for domain literals — no magic strings scattered through the codebase.
 - Depend on interfaces/ports where variation is real — do not couple a use case to a concrete implementation.
 - Comments only for important non-obvious intent — no narration, no noise, no stale TODOs.
+
+If GENERATED block missing, read `src/assets/artifacts/CODING_GUIDELINES.md` — file wins.
+
+<!-- GENERATED tooling — do not edit -->
+
+## Deterministic tooling
+
+Authoritative binaries — do not infer or re-run with regex.
+
+- Comments: Run `node .swarmroom/artifacts/check-comments.mjs --staged` (fallback: `node src/assets/artifacts/check-comments.mjs --staged` in this repo) — authoritative, do not re-run with regex.
+- Findings: Validate findings with `node src/assets/artifacts/findings-validator.mjs --file <path>` or `validateFindings()` from `src/shared/kernel/findings-validator.ts` — strict vocab, do not invent rules.
+- Tasks: Agent must be one of `src/shared/kernel/pipeline.ts` agents — validated by `assertTasksFileSafe` / `recordToTask` in `src/shared/kernel/tasks-format.ts`, never invent.
+- Tasks parsing: Delegate to deterministic validator (`recordToTask`, `assertTasksFileSafe`) — do not interpret findings or tasks manually.
+
+If GENERATED block missing, read `CODING_GUIDELINES.md` — file wins.
 
 ## Plan shape
 

@@ -23,6 +23,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run sync:artifacts:check
+      - run: npm run sync:agents:check
       - run: npm run sync:skills:check
 
   skills:
