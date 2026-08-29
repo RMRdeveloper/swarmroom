@@ -18,12 +18,9 @@ import {
   printOpening,
   printTargetReport,
 } from './features/installer/report.ts';
-import {
-  assertInstallTargetSafe,
-  scopeRoot,
-  scopeSkillsRoot,
-} from './features/installer/targets.ts';
+import { scopeRoot, scopeSkillsRoot } from './features/installer/targets.ts';
 import { runTasks } from './features/tasks-cli/tasks.ts';
+import { assertInstallTargetSafe } from './shared/kernel/install-targets.ts';
 import * as style from './shared/kernel/style.ts';
 
 const TTY = process.stdout.isTTY;

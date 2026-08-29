@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { assetsDir } from '../../shared/kernel/package-root.ts';
 import { agents, skills } from '../../shared/kernel/pipeline.ts';
+import type { FileStatus } from '../../shared/kernel/style.ts';
 
 import type { InstallTarget, Target } from './targets.ts';
 
@@ -28,7 +29,7 @@ export function artifactsDest(projectRoot: string, fileName?: string): string {
   return path.join(artifactsDir(projectRoot), name);
 }
 
-export type FileStatus = 'new' | 'updated' | 'skipped' | 'failed';
+export type { FileStatus } from '../../shared/kernel/style.ts';
 
 export interface InstallOptions {
   readonly dryRun?: boolean;

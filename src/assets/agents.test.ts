@@ -55,14 +55,6 @@ function section(source: string, heading: string): string {
   return body.replace(/^\n+/, '').replace(/\n+$/, '');
 }
 
-/** Bullet lines (`- …`) inside a section body. */
-function bullets(sectionText: string): string[] {
-  return sectionText
-    .split('\n')
-    .map((l) => l.trimEnd())
-    .filter((l) => l.startsWith('- '));
-}
-
 /**
  * Contiguous block starting at `## heading` and ending at `endMarker` (inclusive).
  * Used for shared blocks that may be followed by agent-specific prose before the next heading.
@@ -156,7 +148,7 @@ const READ_FIRST_END =
   'If any of these is missing, say so explicitly instead of assuming there are no constraints. When present, they override the baseline below.';
 
 const BASELINE_END =
-  '- Comments only for important non-obvious intent — no narration, no noise, no stale TODOs.';
+  'If GENERATED block missing, read `src/assets/artifacts/CODING_GUIDELINES.md` — file wins.';
 
 const FINDINGS_END =
   'Severity: Critical = must fix before merge; High = must fix before merge; Medium = must fix before merge; Low = informative — does not block pipeline. `rule` names the violated guideline.';
@@ -191,18 +183,16 @@ describe('agent prompt assets', () => {
     }
   });
 
-  it('aligns baseline bullets with Quick reference Do cells', () => {
+  it('aligns baseline table with Quick reference Do cells', () => {
     const doCells = quickReferenceDoCells();
     const baselineBody = section(
       byName['sw-planner']!,
       'Baseline standards (apply when the repo defines nothing stricter)',
     );
-    const list = bullets(baselineBody);
-    assert.equal(list.length, doCells.length);
-    for (const [i, doCell] of doCells.entries()) {
+    for (const doCell of doCells) {
       assert.ok(
-        list[i]!.startsWith(`- ${doCell} —`),
-        `baseline bullet ${i} must start with "- ${doCell} —"; got: ${list[i]}`,
+        baselineBody.includes(`| ${doCell} `),
+        `baseline table must contain Do cell "${doCell}"`,
       );
     }
   });

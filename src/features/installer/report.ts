@@ -1,8 +1,9 @@
 import path from 'node:path';
 
 import * as style from '../../shared/kernel/style.ts';
+import type { FileStatus } from '../../shared/kernel/style.ts';
 
-import type { FileStatus, InstallReport, InstalledFile } from './installer.ts';
+import type { InstallReport, InstalledFile } from './installer.ts';
 import type { Scope, Target } from './targets.ts';
 
 const STATUS_ORDER: readonly FileStatus[] = ['new', 'updated', 'skipped', 'failed'];
