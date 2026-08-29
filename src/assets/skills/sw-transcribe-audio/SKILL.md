@@ -47,13 +47,31 @@ as a last resort when curl is unavailable.
 
 The agent working directory is usually the project root. Invoke the script
 from the directory that contains this `SKILL.md` (where `transcribe.py` is
-installed):
+installed) — resolve via `assetsDir()` / `packageRoot()` semantics when installed (never assume cwd):
 
 ```
 uv run --with faster-whisper python3 transcribe.py <audio_path>
 ```
 
 Do not run `python3 transcribe.py` directly or install `faster-whisper` separately — `uv run --with faster-whisper` already provides the dependency on every invocation, cached, with no persistent install required.
+
+When the skill is installed via the package, resolve via `packageRoot()` / `assetsDir()` in `src/shared/kernel/package-root.ts`:
+
+```
+uv run --with faster-whisper python3 $(node -e "import{packageRoot}from'./src/shared/kernel/package-root.ts';console.log(packageRoot())")/src/assets/skills/sw-transcribe-audio/transcribe.py "<audio_path>"
+```
+
+In published mirror use `skills/sw-transcribe-audio/scripts/transcribe.py` (or `scripts/transcribe.py` via `sync-skills`). Quote path if it contains spaces.
+
+## Guardrails
+
+- Path may contain spaces — always quote `"<audio_path>"` (script handles stripped quotes via `Path(...strip('"').strip("'")).expanduser().resolve()`).
+- Max ~25MB / 30min CPU recommended; `large-v3-turbo` model is 809MB on first run — OOM risk on constrained runners.
+- Validate stdout via `python -m json.tool` — must be `{"language","text"}`; reject if missing keys or non-JSON.
+
+## Missing dependencies
+
+If `ffmpeg` or `uv` is missing (`which ffmpeg` / `which uv` / `shutil.which` check), ask via harness question tool (`ask_user_question` per `sw-grilling` Tooling): (A) Install now (Recommended) / (B) Abort. Only after explicit user accept, run install (`sudo apt install ffmpeg` or `curl -LsSf https://astral.sh/uv/install.sh | sh`). Never auto-install without confirmation.
 
 ## Success
 
@@ -67,5 +85,6 @@ Non-zero exit, message on **stderr**, no JSON on stdout:
 
 - missing file
 - unsupported extension
-- `ffmpeg` missing (the message includes `sudo apt install ffmpeg`)
+- `ffmpeg` missing (the message includes `sudo apt install ffmpeg` and suggests `ask_user_question`)
+- `uv` missing
 - missing faster-whisper

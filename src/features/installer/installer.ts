@@ -10,7 +10,11 @@ import type { InstallTarget, Target } from './targets.ts';
 
 const defaultAssetsDir = assetsDir();
 export const guidelinesFileName = 'CODING_GUIDELINES.md';
-export const ARTIFACTS_ALLOWLIST = ['check-comments.mjs', 'findings-validator.mjs'] as const;
+export const ARTIFACTS_ALLOWLIST = [
+  'check-comments.mjs',
+  'findings-validator.mjs',
+  'validate-spec.mjs',
+] as const;
 const SKILL_FILE_NAME = 'SKILL.md';
 const agentSource = (assetsRoot: string, name: string) =>
   path.join(assetsRoot, 'agents', `${name}.md`);

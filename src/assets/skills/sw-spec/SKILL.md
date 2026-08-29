@@ -15,7 +15,7 @@ anything; end by handing off to `sw-pipeline`.
 ## Project root
 
 Resolve the root of the **target** project, not necessarily the current
-working directory:
+working directory — resolve via `packageRoot()` semantics (walk up to `package.json`) in `src/shared/kernel/package-root.ts`. If ambiguous or missing, ask via harness question tool (`ask_user_question` per `sw-grilling` Tooling) — never guess.
 
 - If the user names a project or path, resolve it there.
 - Otherwise, use the project root of the current session.
@@ -37,24 +37,20 @@ already uses.
 
 ## Clarify before drafting
 
-If the request is ambiguous or has unresolved decisions, run the `sw-grilling`
-skill first and use its settled understanding. If the request is already
-clear, draft directly. Never invent answers to open decisions; leave them as
-explicit questions.
+If the request is ambiguous or has unresolved decisions, invoke `sw-grilling` IN THIS CONVERSATION via harness question tool (Pi `ask_user_question` per `sw-grilling` Tooling, ≤3 Q, Recommended first). Do NOT delegate to subagent. Pause and wait — same gate as `sw-pipeline`. Use its settled understanding. If the request is already clear, draft directly. Never invent answers to open decisions; leave them as explicit questions.
 
 ## Spec file
 
 One file per request: `.swarmroom/specs/<slug>.md` under the target project root,
-where `<slug>` is a kebab-case name derived from the spec title.
+where `<slug>` = kebab-case of title, `[a-z0-9-]`, ≤60 chars. Check `existsSync(.swarmroom/specs/<slug>.md)` before draft.
 
 If the file already exists, stop: do not overwrite silently and do not
 auto-suffix. Offer the user the choice to confirm an update or pick another
-slug.
+slug. If file exists, STOP and ask via `ask_user_question` (Overwrite / Pick new slug).
 
-The spec is plain Markdown, no frontmatter, no status fields. Always write in English; keep technical terms, paths, and
-`Given/When/Then` syntax as they exist in the repo. Keep section headings in English.
+The spec is plain Markdown, no frontmatter (`---` forbidden), no status fields. Must end with `\n`. Always write in English; keep technical terms, paths, and `Given/When/Then` syntax as they exist in the repo. Keep section headings in English and in order: `Context / Goal / Non-goals / Requirements / Acceptance Criteria / Constraints / Open Questions`. Validate via `node src/assets/artifacts/validate-spec.mjs --file <path>` (or `node $(node -e "import{packageRoot}from'./src/shared/kernel/package-root.ts'")/src/assets/artifacts/validate-spec.mjs --file <path>` in published install). Reject if frontmatter, wrong slug, empty section, or missing `Given/When/Then` in Acceptance Criteria.
 
-Template (omit any section that would be empty):
+Template (omit any section that would be empty, but never leave a present section empty):
 
 ```markdown
 # <Title>
@@ -91,6 +87,8 @@ Template (omit any section that would be empty):
 - <unresolved non-blocking decisions, if any>
 ```
 
+Spec file MUST be English, headings exactly as above and in order. Validate after draft via `validate-spec.mjs` — reject if empty section, frontmatter, wrong slug, or missing `Given/When/Then`.
+
 ## Confirm before writing
 
 Show the complete draft and the exact destination path. Write the file only
@@ -99,10 +97,7 @@ the user confirms the draft; never hide them.
 
 ## Scope of writes
 
-The only file this skill may create or update is the spec under
-`.swarmroom/specs/`. Do not touch code, other documentation, `.swarmroom/tasks/`,
-and keep it separate from the project's real `docs/` documentation.
-or any implementation agent.
+The ONLY writable path is `.swarmroom/specs/<slug>.md` — the only file this skill may create or update is the spec under `.swarmroom/specs/`. Forbidden: `src/**`, `docs/**`, `.swarmroom/tasks/**`, `.swarmroom/artifacts/**`. If file exists, STOP and ask via `ask_user_question` (Overwrite / Pick new slug). Do not touch code, other documentation, `.swarmroom/tasks/`, and keep it separate from the project's real `docs/` documentation or any implementation agent.
 
 ## Handoff
 

@@ -58,7 +58,7 @@ Rules:
    accepts multiple questions per tool call, a single call with ≤3 questions
    is valid. Otherwise use one tool call per question. Both satisfy the cap.
 2. Map fields to the tool's schema:
-   - Pi `ask_user_question`: `title` (`Qn — <short title>`) → `header`, `body` → `question`, `Recommended` → first `options[].label` with ` (Recommended)` suffix and `description` explaining the trade-off
+   - Pi `ask_user_question`: `title` (`Qn — <short title>`) → `header`, `body` → `question`, `Recommended` → first `options[].label` with `(Recommended)` suffix and `description` explaining the trade-off
    - opencode/Claude `question`/`AskUserQuestion`: same mapping to `questions[]` — `header`/`question`/`options`
    - Always respect the tool's limits: Pi 2-4 options per question (1-4 questions per call), opencode/Claude 2-4 options, Cursor/Codex per their schema. Never emit reserved labels `Other`/`Type something.` — they are auto-appended.
 3. If no question tool exists, or the tool call fails, fall back to plain

@@ -35,8 +35,7 @@ settled understanding to `sw-planner` as input. The planner never runs
 
 ## Adaptive triage
 
-- **Trivial** (typo, mechanical rename, unambiguous one-liner): graph is
-  `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no `sw-grilling`.
+- **Trivial iff ALL:** (a) ≤20 lines, (b) exactly 1 file in `files`, (c) no new dep/import, (d) no decision in design tree, (e) user confirms `trivial` via `ask_user_question` (Pi/opencode/Claude). Else → non-trivial. Guard: if doubt, ask — never assume trivial, never bypass grilling+planner. Graph is `T1 sw-implementer` → `T2 sw-verifier`. No `sw-planner`, no `sw-grilling`.
 - **Otherwise**: run the `sw-grilling` gate first (see above). After the user
   confirms the settled understanding, `sw-planner` runs (read-first, then
   plan). Planner emits a prose plan plus a compact task graph in blocks. No
@@ -51,13 +50,15 @@ Every pipeline run owns its own graph file. At the start pick a
 initial request). Then define `tasksFile = <runId>.tasks` (stored as
 `.swarmroom/tasks/<runId>.tasks`).
 
-Block format (no JSON): each task is a block of `field: value` lines, blocks separated by a blank line, file ends with `\n`. Fields: `id, status, dependsOn ("-" if empty), agent, title, description (defaults to title), files (comma or "-"), acceptance (";" or "-"), result, error, attempts`. Each line `^([A-Za-z]+): (.*)$` with one space after colon. `createGraph` validates duplicates/cycles/missing deps. Legacy JSON no longer supported.
+Block format (no JSON): each task is a block of `field: value` lines, blocks separated by a blank line, file ends with `\n`. Fields: `id, status, dependsOn ("-" if empty), agent, title, description (defaults to title), files (comma or "-"), acceptance (";" or "-"), result, error, attempts`. Each line `^([A-Za-z]+): (.*)$` with one space after colon. `createGraph` validates duplicates/cycles/missing deps. Legacy JSON no longer supported — error `legacy JSON not supported — rename to .tasks`.
+
+`tasksFile` MUST end with `.tasks` (reject otherwise). Validate via `assertTasksFileSafe` + `/\.tasks$/` — reuse `taskGraphPath()` in `src/features/tasks/task-store.ts`.
 
 Use the task-graph interface with `--tasks-file` on **every** invocation.
 Prefer `npx` so it works without a global install (production has no persistent
 binary):
 
-1. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> validate` before execution and after graph changes.
+1. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> [--dir <root>] validate` ALWAYS before `ready|set|replan` and after graph changes. Abort if not `Valid task graph: N tasks.`
 2. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> ready` to select the safe ready set.
 3. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> set <id> <status> [--result|--error]` for every status/result transition.
 4. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <tasksFile> replan --file <path>` for accepted replans (proposal file also in blocks).
@@ -87,7 +88,7 @@ the graph requires.
 
 ## Scheduling
 
-Run the safe ready set:
+Run the safe ready set (deterministic via `selectRunnable()` in `src/features/tasks/scheduler.ts` — do not re-implement disjoint check):
 
 - dependencies must all be `completed`;
 - two writers (`sw-implementer`, `sw-fixer`) run in parallel only if both
@@ -117,7 +118,6 @@ A subagent may propose blocks for `addTasks`/`addDependencies` (same block forma
 ## Token budget
 
 Pass each subagent only its task plus `result` / `files` / findings of its
-deps. Never the full graph, transcripts, or copied guidelines — agents read
-those files themselves.
+deps — use `humanReady()` + task result only. Never paste full `.tasks` or specs; never the full graph, transcripts, or copied guidelines — agents read those files themselves via tools.
 
 Report each stage's output, not a summary.
