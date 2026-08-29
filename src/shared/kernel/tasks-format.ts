@@ -1,3 +1,5 @@
+import { isTaskStatus, type Task, type TaskStatus } from './tasks-cli-types.ts';
+
 export const LINE_RE = /^([A-Za-z][A-Za-z0-9_-]*): (.*)$/;
 
 export const VALID_KEYS = new Set([
@@ -113,6 +115,28 @@ export function parseBlockRecord(
   return record;
 }
 
+/**
+ * Validate a tasks file path for traversal and encoding safety.
+ * Normalizes `\\` to `/`, splits by `/`, and rejects any segment equal to `..`.
+ * Allows absolute paths; relative paths are expected under `.swarmroom/tasks/` by callers.
+ * Covers `a/../b.tasks` via segment check instead of substring `includes('..')`.
+ */
+export function assertTasksFileSafe(file: string): string {
+  if (file.length === 0) throw new Error('tasksFile must be a non-empty string');
+  if (file.includes('\0')) throw new Error('tasksFile must not contain null bytes');
+  const normalized = file.replaceAll('\\', '/');
+  const parts = normalized.split('/');
+  for (const segment of parts) {
+    if (segment === '..') throw new Error('tasksFile must not contain `..`');
+  }
+  return normalized;
+}
+
+/** Alias for backward compatibility — validates and returns normalized tasks file path. */
+export function validateTasksFile(file: string): string {
+  return assertTasksFileSafe(file);
+}
+
 export function assertValidKeys(
   record: ReadonlyMap<string, string>,
   blockIndex: number,
@@ -122,4 +146,126 @@ export function assertValidKeys(
     if (!VALID_KEYS.has(key))
       throw new Error(`${prefix} ${String(blockIndex)}: unknown key "${key}"`);
   }
+}
+
+/** Build a Task from a parsed block record, validating all fields. */
+export function recordToTask(
+  record: ReadonlyMap<string, string>,
+  blockIndex: number,
+  prefix = 'block',
+): Task {
+  assertValidKeys(record, blockIndex, prefix);
+
+  for (const key of REQUIRED_KEYS) {
+    if (!record.has(key))
+      throw new Error(`${prefix} ${String(blockIndex)}: missing field "${key}"`);
+  }
+
+  const idValue = record.get('id');
+  if (idValue === undefined) throw new Error(`${prefix} ${String(blockIndex)}: missing field "id"`);
+  const id = idValue.trim();
+  if (id.length === 0)
+    throw new Error(`${prefix} ${String(blockIndex)}: id must be a non-empty string`);
+
+  const titleValue = record.get('title');
+  if (titleValue === undefined)
+    throw new Error(`${prefix} ${String(blockIndex)}: missing field "title"`);
+  const title = titleValue.trim();
+  if (title.length === 0)
+    throw new Error(`${prefix} ${String(blockIndex)}: title must be a non-empty string`);
+
+  const statusValue = record.get('status');
+  if (statusValue === undefined)
+    throw new Error(`${prefix} ${String(blockIndex)}: missing field "status"`);
+  const statusRaw = statusValue.trim();
+  if (!isTaskStatus(statusRaw))
+    throw new Error(`${prefix} ${String(blockIndex)}: invalid status "${statusRaw}"`);
+  const status: TaskStatus = statusRaw;
+
+  const dependsOnValue = record.get('dependsOn');
+  if (dependsOnValue === undefined)
+    throw new Error(`${prefix} ${String(blockIndex)}: missing field "dependsOn"`);
+  const dependsOn: readonly string[] =
+    dependsOnValue.trim() === '-'
+      ? []
+      : splitList(dependsOnValue, ',', 'dependsOn', blockIndex, prefix);
+
+  const descriptionRaw = record.get('description');
+  const description =
+    descriptionRaw !== undefined && descriptionRaw.trim().length > 0
+      ? descriptionRaw.trim()
+      : title;
+
+  const agentRaw = record.get('agent');
+  let agent: string | undefined;
+  if (agentRaw !== undefined) {
+    const v = agentRaw.trim();
+    if (v.length === 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: agent must be a non-empty string`);
+    agent = v;
+  }
+
+  let files: readonly string[] | undefined;
+  const filesRaw = record.get('files');
+  if (filesRaw !== undefined) {
+    const t = filesRaw.trim();
+    if (t === '-') files = undefined;
+    else if (t.length === 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: files cannot be empty`);
+    else files = splitList(filesRaw, ',', 'files', blockIndex, prefix);
+  }
+
+  let acceptance: readonly string[] | undefined;
+  const acceptanceRaw = record.get('acceptance');
+  if (acceptanceRaw !== undefined) {
+    const t = acceptanceRaw.trim();
+    if (t === '-') acceptance = undefined;
+    else if (t.length === 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: acceptance cannot be empty`);
+    else acceptance = splitList(acceptanceRaw, ';', 'acceptance', blockIndex, prefix);
+  }
+
+  let result: string | undefined;
+  const resultRaw = record.get('result');
+  if (resultRaw !== undefined) {
+    const v = resultRaw.trim();
+    if (v.length === 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: result must be a non-empty string`);
+    result = v;
+  }
+
+  let error: string | undefined;
+  const errorRaw = record.get('error');
+  if (errorRaw !== undefined) {
+    const v = errorRaw.trim();
+    if (v.length === 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: error must be a non-empty string`);
+    error = v;
+  }
+
+  let attempts: number | undefined;
+  const attemptsRaw = record.get('attempts');
+  if (attemptsRaw !== undefined) {
+    const v = attemptsRaw.trim();
+    if (!/^-?\d+$/.test(v))
+      throw new Error(`${prefix} ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0)
+      throw new Error(`${prefix} ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
+    attempts = n;
+  }
+
+  return {
+    id,
+    title,
+    description,
+    status,
+    dependsOn,
+    ...(agent === undefined ? {} : { agent }),
+    ...(files === undefined ? {} : { files }),
+    ...(acceptance === undefined ? {} : { acceptance }),
+    ...(result === undefined ? {} : { result }),
+    ...(error === undefined ? {} : { error }),
+    ...(attempts === undefined ? {} : { attempts }),
+  };
 }

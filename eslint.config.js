@@ -58,6 +58,10 @@ export default tseslint.config(
         },
       ],
       'import-x/no-duplicates': 'error',
+      /**
+       * import-x/no-cycle with ignoreExternal:true avoids flagging external packages (e.g. picocolors)
+       * and keeps maxDepth at default (Infinity) — only internal cycles matter; external cycles are not actionable.
+       */
       'import-x/no-cycle': ['error', { ignoreExternal: true }],
     },
   },

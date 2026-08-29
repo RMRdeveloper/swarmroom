@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
+import { parseBlockRecord, recordToTask } from '../../shared/kernel/tasks-format.ts';
 import { parseTaskGraph, taskGraphPath, writeTaskGraph } from '../tasks/task-store.ts';
 import { createGraph, type Task } from '../tasks/tasks.ts';
 
@@ -220,5 +222,46 @@ describe('runTaskCommand', () => {
     });
     const saved = parseTaskGraph(await readFile(taskGraphPath(dir, 'run.tasks'), 'utf8'));
     assert.ok(saved.tasks.find((t) => t.id === 'T2')?.dependsOn.includes('T1'));
+  });
+});
+
+describe('cycle cut and dedup', () => {
+  it('tasks-cli does not import from cli/args', () => {
+    const src = readFileSync(new URL('tasks.ts', import.meta.url), 'utf8');
+    assert.ok(!src.includes("from '../../cli/args"), 'should not import from cli/args');
+  });
+
+  it('recordToTask parses a replan task via shared kernel', () => {
+    const rec = parseBlockRecord(
+      ['id: T9', 'title: Dedup test', 'status: pending', 'dependsOn: -'],
+      1,
+      1,
+      'replan block',
+    );
+    const parsed = recordToTask(rec, 1, 'replan block');
+    assert.equal(parsed.id, 'T9');
+    assert.equal(parsed.status, 'pending');
+  });
+
+  it('replan proposal with files uses shared parser', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'swarmroom-tasks-'));
+    await writeTaskGraph(dir, createGraph([task({ id: 'T1', status: 'completed' })]), 'run.tasks');
+    const proposalPath = join(dir, 'proposal.tasks');
+    const block = [
+      'id: T2',
+      'title: With files',
+      'status: pending',
+      'dependsOn: T1',
+      'files: a.ts, b.ts',
+    ].join('\n');
+    await writeFile(proposalPath, block);
+    await runTaskCommand({
+      dir,
+      tasksFile: 'run.tasks',
+      command: { kind: 'replan', file: proposalPath },
+    });
+    const saved = parseTaskGraph(await readFile(taskGraphPath(dir, 'run.tasks'), 'utf8'));
+    const t2 = saved.tasks.find((t) => t.id === 'T2');
+    assert.deepEqual(t2?.files, ['a.ts', 'b.ts']);
   });
 });

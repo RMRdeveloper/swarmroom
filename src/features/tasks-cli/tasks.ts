@@ -1,24 +1,18 @@
 import { readFile } from 'node:fs/promises';
 
-import type { TasksCommand } from '../../cli/args.ts';
 import * as style from '../../shared/kernel/style.ts';
+import type { TasksCommand } from '../../shared/kernel/tasks-cli-types.ts';
 import {
+  assertTasksFileSafe,
   normalizeRaw,
   parseBlockRecord,
+  recordToTask,
   splitIntoBlocks,
-  splitList as splitListKernel,
-  VALID_TASK_KEYS,
 } from '../../shared/kernel/tasks-format.ts';
 import { applyReplan, selectRunnable, type ReplanProposal } from '../tasks/scheduler.ts';
 import { readTaskGraph, taskGraphPath, writeTaskGraph } from '../tasks/task-store.ts';
 import type { Task, TaskGraph, TaskStatus } from '../tasks/tasks.ts';
-import {
-  isTaskStatus,
-  propagateFailure,
-  withError,
-  withResult,
-  withStatus,
-} from '../tasks/tasks.ts';
+import { propagateFailure, withError, withResult, withStatus } from '../tasks/tasks.ts';
 
 const GLYPH: Record<TaskStatus, string> = {
   completed: '✓',
@@ -81,11 +75,8 @@ function requireGraph(graph: TaskGraph | null, dir: string, tasksFile: string): 
   return graph;
 }
 
-function splitList(value: string, sep: string, field: string, block: number): readonly string[] {
-  return splitListKernel(value, sep, field, block, 'replan block');
-}
-
 async function readProposal(file: string): Promise<ReplanProposal> {
+  assertTasksFileSafe(file);
   const raw = await readFile(file, 'utf8');
   const normalized = normalizeRaw(raw);
   const trimmedStart = normalized.trimStart();
@@ -136,111 +127,7 @@ async function readProposal(file: string): Promise<ReplanProposal> {
         throw new Error(`replan block ${String(n)}: dependsOn in dependency must be a single id`);
       addDependencies.push({ id, dependsOn: dep });
     } else {
-      for (const k of rec.keys()) {
-        if (!VALID_TASK_KEYS.has(k))
-          throw new Error(`replan block ${String(n)}: unknown key "${k}"`);
-      }
-      for (const k of ['id', 'title', 'status', 'dependsOn']) {
-        if (!rec.has(k)) throw new Error(`replan block ${String(n)}: missing field "${k}"`);
-      }
-      const idRaw2 = rec.get('id');
-      const titleRaw = rec.get('title');
-      const statusRaw2 = rec.get('status');
-      const dependsOnRaw2 = rec.get('dependsOn');
-      if (
-        idRaw2 === undefined ||
-        titleRaw === undefined ||
-        statusRaw2 === undefined ||
-        dependsOnRaw2 === undefined
-      )
-        throw new Error(`replan block ${String(n)}: missing required field`);
-      const id = idRaw2.trim();
-      const title = titleRaw.trim();
-      const statusRaw = statusRaw2.trim();
-      const dependsOnRaw = dependsOnRaw2;
-      const descriptionRaw = rec.get('description');
-      if (id.length === 0)
-        throw new Error(`replan block ${String(n)}: id must be a non-empty string`);
-      if (title.length === 0)
-        throw new Error(`replan block ${String(n)}: title must be a non-empty string`);
-      if (!isTaskStatus(statusRaw))
-        throw new Error(`replan block ${String(n)}: invalid status "${statusRaw}"`);
-      const description =
-        descriptionRaw !== undefined && descriptionRaw.trim().length > 0
-          ? descriptionRaw.trim()
-          : title;
-      if (description.length === 0)
-        throw new Error(`replan block ${String(n)}: description must be a non-empty string`);
-      const dependsOn =
-        dependsOnRaw.trim() === '-' ? [] : splitList(dependsOnRaw, ',', 'dependsOn', n);
-      const agentRaw = rec.get('agent');
-      let agent: string | undefined;
-      if (agentRaw !== undefined) {
-        const v = agentRaw.trim();
-        if (v.length === 0)
-          throw new Error(`replan block ${String(n)}: agent must be a non-empty string`);
-        agent = v;
-      }
-      let files: readonly string[] | undefined;
-      const filesRaw = rec.get('files');
-      if (filesRaw !== undefined) {
-        const t = filesRaw.trim();
-        if (t !== '-') {
-          if (t.length === 0) throw new Error(`replan block ${String(n)}: files cannot be empty`);
-          files = splitList(filesRaw, ',', 'files', n);
-        }
-      }
-      let acceptance: readonly string[] | undefined;
-      const acceptanceRaw = rec.get('acceptance');
-      if (acceptanceRaw !== undefined) {
-        const t = acceptanceRaw.trim();
-        if (t !== '-') {
-          if (t.length === 0)
-            throw new Error(`replan block ${String(n)}: acceptance cannot be empty`);
-          acceptance = splitList(acceptanceRaw, ';', 'acceptance', n);
-        }
-      }
-      let result: string | undefined;
-      const resultRaw = rec.get('result');
-      if (resultRaw !== undefined) {
-        const v = resultRaw.trim();
-        if (v.length === 0)
-          throw new Error(`replan block ${String(n)}: result must be a non-empty string`);
-        result = v;
-      }
-      let error: string | undefined;
-      const errorRaw = rec.get('error');
-      if (errorRaw !== undefined) {
-        const v = errorRaw.trim();
-        if (v.length === 0)
-          throw new Error(`replan block ${String(n)}: error must be a non-empty string`);
-        error = v;
-      }
-      let attempts: number | undefined;
-      const attemptsRaw = rec.get('attempts');
-      if (attemptsRaw !== undefined) {
-        const v = attemptsRaw.trim();
-        if (!/^-?\d+$/.test(v))
-          throw new Error(`replan block ${String(n)}: attempts must be integer >=0, got "${v}"`);
-        const num = Number(v);
-        if (!Number.isInteger(num) || num < 0)
-          throw new Error(`replan block ${String(n)}: attempts must be integer >=0, got "${v}"`);
-        attempts = num;
-      }
-
-      const task: Task = {
-        id,
-        title,
-        description,
-        status: statusRaw,
-        dependsOn,
-        ...(agent === undefined ? {} : { agent }),
-        ...(files === undefined ? {} : { files }),
-        ...(acceptance === undefined ? {} : { acceptance }),
-        ...(result === undefined ? {} : { result }),
-        ...(error === undefined ? {} : { error }),
-        ...(attempts === undefined ? {} : { attempts }),
-      };
+      const task = recordToTask(rec, n, 'replan block');
       addTasks.push(task);
     }
   }

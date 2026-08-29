@@ -2,16 +2,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import {
-  assertValidKeys,
+  assertTasksFileSafe,
   CANONICAL_ORDER,
   normalizeRaw,
   parseBlockRecord,
-  REQUIRED_KEYS,
+  recordToTask,
   splitIntoBlocks,
-  splitList,
 } from '../../shared/kernel/tasks-format.ts';
 
-import { createGraph, isTaskStatus, type Task, type TaskGraph, type TaskStatus } from './tasks.ts';
+import { createGraph, type Task, type TaskGraph } from './tasks.ts';
 
 export const TASKS_DIR = '.swarmroom';
 export const TASKS_SUBDIR = 'tasks';
@@ -24,129 +23,15 @@ function isAbsent(err: unknown): boolean {
 
 /** Prevents escaping the project .swarmroom/tasks tree via `..`. Validates absolute paths too. */
 export function taskGraphPath(projectRoot: string, tasksFile: string): string {
-  if (tasksFile.length === 0) throw new Error('tasksFile must be a non-empty string');
-  if (tasksFile.includes('\0')) throw new Error('tasksFile must not contain null bytes');
-  const normalized = tasksFile.replaceAll('\\', '/');
-  const parts = normalized.split('/');
-  for (const p of parts) {
-    if (p === '..') throw new Error('tasksFile must not contain `..`');
-  }
+  const normalized = assertTasksFileSafe(tasksFile);
   if (isAbsolute(tasksFile)) return normalized;
-  return join(projectRoot, TASKS_DIR, TASKS_SUBDIR, tasksFile);
+  return join(projectRoot, TASKS_DIR, TASKS_SUBDIR, normalized);
 }
 
+/** Parse a single block into a Task via the shared kernel. */
 function parseBlock(lines: readonly string[], blockIndex: number, startLine: number): Task {
   const record = parseBlockRecord(lines, blockIndex, startLine, 'block');
-  assertValidKeys(record, blockIndex, 'block');
-
-  for (const key of REQUIRED_KEYS) {
-    if (!record.has(key)) throw new Error(`block ${String(blockIndex)}: missing field "${key}"`);
-  }
-
-  const idValue = record.get('id');
-  if (idValue === undefined) throw new Error(`block ${String(blockIndex)}: missing field "id"`);
-  const idRaw = idValue.trim();
-  if (idRaw.length === 0)
-    throw new Error(`block ${String(blockIndex)}: id must be a non-empty string`);
-  const titleValue = record.get('title');
-  if (titleValue === undefined)
-    throw new Error(`block ${String(blockIndex)}: missing field "title"`);
-  const titleRaw = titleValue.trim();
-  if (titleRaw.length === 0)
-    throw new Error(`block ${String(blockIndex)}: title must be a non-empty string`);
-
-  const statusValue = record.get('status');
-  if (statusValue === undefined)
-    throw new Error(`block ${String(blockIndex)}: missing field "status"`);
-  const statusRaw = statusValue.trim();
-  if (!isTaskStatus(statusRaw))
-    throw new Error(`block ${String(blockIndex)}: invalid status "${statusRaw}"`);
-  const status: TaskStatus = statusRaw;
-
-  const dependsOnValue = record.get('dependsOn');
-  if (dependsOnValue === undefined)
-    throw new Error(`block ${String(blockIndex)}: missing field "dependsOn"`);
-  const dependsOnRaw = dependsOnValue;
-  const dependsOn: readonly string[] =
-    dependsOnRaw.trim() === '-' ? [] : splitList(dependsOnRaw, ',', 'dependsOn', blockIndex);
-
-  const descriptionRaw = record.get('description');
-  const description =
-    descriptionRaw !== undefined && descriptionRaw.trim().length > 0
-      ? descriptionRaw.trim()
-      : titleRaw;
-
-  const agentRaw = record.get('agent');
-  let agent: string | undefined;
-  if (agentRaw !== undefined) {
-    const v = agentRaw.trim();
-    if (v.length === 0)
-      throw new Error(`block ${String(blockIndex)}: agent must be a non-empty string`);
-    agent = v;
-  }
-
-  let files: readonly string[] | undefined;
-  const filesRaw = record.get('files');
-  if (filesRaw !== undefined) {
-    const t = filesRaw.trim();
-    if (t === '-') files = undefined;
-    else if (t.length === 0) throw new Error(`block ${String(blockIndex)}: files cannot be empty`);
-    else files = splitList(filesRaw, ',', 'files', blockIndex);
-  }
-
-  let acceptance: readonly string[] | undefined;
-  const acceptanceRaw = record.get('acceptance');
-  if (acceptanceRaw !== undefined) {
-    const t = acceptanceRaw.trim();
-    if (t === '-') acceptance = undefined;
-    else if (t.length === 0)
-      throw new Error(`block ${String(blockIndex)}: acceptance cannot be empty`);
-    else acceptance = splitList(acceptanceRaw, ';', 'acceptance', blockIndex);
-  }
-
-  let result: string | undefined;
-  const resultRaw = record.get('result');
-  if (resultRaw !== undefined) {
-    const v = resultRaw.trim();
-    if (v.length === 0)
-      throw new Error(`block ${String(blockIndex)}: result must be a non-empty string`);
-    result = v;
-  }
-
-  let error: string | undefined;
-  const errorRaw = record.get('error');
-  if (errorRaw !== undefined) {
-    const v = errorRaw.trim();
-    if (v.length === 0)
-      throw new Error(`block ${String(blockIndex)}: error must be a non-empty string`);
-    error = v;
-  }
-
-  let attempts: number | undefined;
-  const attemptsRaw = record.get('attempts');
-  if (attemptsRaw !== undefined) {
-    const v = attemptsRaw.trim();
-    if (!/^-?\d+$/.test(v))
-      throw new Error(`block ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 0)
-      throw new Error(`block ${String(blockIndex)}: attempts must be integer >=0, got "${v}"`);
-    attempts = n;
-  }
-
-  return {
-    id: idRaw,
-    title: titleRaw,
-    description,
-    status,
-    dependsOn,
-    ...(agent === undefined ? {} : { agent }),
-    ...(files === undefined ? {} : { files }),
-    ...(acceptance === undefined ? {} : { acceptance }),
-    ...(result === undefined ? {} : { result }),
-    ...(error === undefined ? {} : { error }),
-    ...(attempts === undefined ? {} : { attempts }),
-  };
+  return recordToTask(record, blockIndex, 'block');
 }
 
 /** Fail fast on invalid block syntax, shape, status, or graph invariants. No JSON support. */

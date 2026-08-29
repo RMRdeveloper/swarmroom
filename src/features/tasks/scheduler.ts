@@ -1,6 +1,16 @@
 import { createGraph, readyTasks, type Task, type TaskGraph } from './tasks.ts';
 
+/**
+ * Writers own file mutations; only implementer and fixer are writers.
+ * Readers (reviewer/verifier/planner/researcher) never conflict with writers on files.
+ * Keep in sync with pipeline agents — TODO #001 -- consider deriving WRITER_AGENTS from pipeline.ts if roles become configurable.
+ */
 export const WRITER_AGENTS = ['sw-implementer', 'sw-fixer'] as const;
+
+/**
+ * Max retry attempts per task. Not used in `selectRunnable` (which only filters by ready/running),
+ * but used in `canRetry` to decide if a failed task may be retried by the orchestrator.
+ */
 export const MAX_ATTEMPTS = 2;
 
 const WRITER_SET: ReadonlySet<(typeof WRITER_AGENTS)[number]> = new Set(WRITER_AGENTS);
@@ -10,11 +20,19 @@ export interface ReplanProposal {
   readonly addDependencies?: readonly { readonly id: string; readonly dependsOn: string }[];
 }
 
+/**
+ * True only for writer agents (`sw-implementer` | `sw-fixer`).
+ * All other agents are readers and never participate in writer file-conflict checks.
+ */
 export function isWriter(agent: string | undefined): agent is (typeof WRITER_AGENTS)[number] {
   if (agent === undefined) return false;
   return (WRITER_SET as ReadonlySet<string>).has(agent);
 }
 
+/**
+ * Whether a task may be retried — attempts < MAX_ATTEMPTS.
+ * Invariant: scheduler never retries automatically; caller decides via `canRetry`.
+ */
 export function canRetry(task: Task): boolean {
   return (task.attempts ?? 0) < MAX_ATTEMPTS;
 }
@@ -24,6 +42,12 @@ function filesOverlap(a: readonly string[], b: readonly string[]): boolean {
   return b.some((f) => set.has(f));
 }
 
+/**
+ * Writer conflict rule: a writer with no `files` is assumed to touch the whole repo,
+ * so `files === undefined` or `files.length === 0` always conflicts with any other writer.
+ * This is fail-closed: unknown scope => no parallel execution. Non-writers never conflict.
+ * Property: fileless writers never run in parallel (enforced by this function).
+ */
 function writerConflicts(candidate: Task, selected: readonly Task[]): boolean {
   if (!isWriter(candidate.agent)) return false;
   const selectedWriters = selected.filter((t) => isWriter(t.agent));
@@ -36,7 +60,12 @@ function writerConflicts(candidate: Task, selected: readonly Task[]): boolean {
   return false;
 }
 
-/** Safe parallel set from ready tasks, in graph.tasks order. */
+/**
+ * Safe parallel set from ready tasks, in graph.tasks order.
+ * Writers with overlapping files or with undefined files never run together; readers always parallel.
+ * Occupying writers (`running` + writer) also block conflicting ready writers.
+ * MAX_ATTEMPTS is not consulted here — scheduling is ready-state only; retry gate is `canRetry`.
+ */
 export function selectRunnable(graph: TaskGraph): readonly Task[] {
   const occupying = graph.tasks.filter((t) => t.status === 'running' && isWriter(t.agent));
   const selected: Task[] = [];
