@@ -1,11 +1,12 @@
 import pc from 'picocolors';
 
-export type FileStatus = 'new' | 'updated' | 'skipped';
+export type FileStatus = 'new' | 'updated' | 'skipped' | 'failed';
 export type TaskStatus = 'pending' | 'ready' | 'running' | 'completed' | 'failed' | 'blocked';
 
 export function status(kind: FileStatus, text: string): string {
   if (kind === 'new') return pc.green(text);
   if (kind === 'updated') return pc.yellow(text);
+  if (kind === 'failed') return pc.red(text);
   return pc.dim(text);
 }
 

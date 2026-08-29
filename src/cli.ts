@@ -18,7 +18,11 @@ import {
   printOpening,
   printTargetReport,
 } from './features/installer/report.ts';
-import { scopeRoot, scopeSkillsRoot } from './features/installer/targets.ts';
+import {
+  assertInstallTargetSafe,
+  scopeRoot,
+  scopeSkillsRoot,
+} from './features/installer/targets.ts';
 import { runTasks } from './features/tasks-cli/tasks.ts';
 import * as style from './shared/kernel/style.ts';
 
@@ -84,8 +88,10 @@ async function main(): Promise<void> {
     const force = parsed.options.force;
     const verbose = parsed.options.verbose;
     const quiet = parsed.options.quiet;
+    const dryRun = parsed.options.dryRun;
     const version = packageVersion();
     const reportOpts = { verbose, quiet };
+    const installOpts = dryRun ? { dryRun: true as const } : {};
 
     if (TTY && !parsed.options.explicit) {
       chosen = await selectMultiple('Pick the editors to install into:', chosen);
@@ -95,10 +101,21 @@ async function main(): Promise<void> {
     }
 
     printOpening(version, scope, dir);
+    if (dryRun) console.log(style.muted('(dry-run: no files will be written)'));
 
     for (const target of chosen) {
       const root = scopeRoot(target, scope, dir);
       const skillsDest = scopeSkillsRoot(target, scope, dir);
+      const inst =
+        skillsDest === root ? { target, root } : { target, root, skillsRoot: skillsDest };
+      try {
+        assertInstallTargetSafe(inst, scope, force);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        printError(message);
+        process.exitCode = 1;
+        continue;
+      }
       const confirmMessage =
         skillsDest === root
           ? `Existing ${target.label} files in ${pathHint(root)} will be replaced. Continue?`
@@ -108,11 +125,14 @@ async function main(): Promise<void> {
         (TTY &&
           (await anyPresent(root, target, skillsDest)) &&
           (await confirm(confirmMessage, true)));
-      const report = await install(
-        skillsDest === root ? { target, root } : { target, root, skillsRoot: skillsDest },
-        overwrite,
-      );
-      printTargetReport(report, reportOpts);
+      try {
+        const report = await install(inst, overwrite, undefined, installOpts);
+        printTargetReport(report, reportOpts);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        printError(`${target.label}: ${message}`);
+        process.exitCode = 1;
+      }
     }
 
     if (scope === 'project') {
@@ -124,7 +144,7 @@ async function main(): Promise<void> {
             `Existing ${guidelinesFileName} in ${pathHint(dir)} will be replaced. Continue?`,
             true,
           )));
-      const file = await installGuidelines(dir, overwrite);
+      const file = await installGuidelines(dir, overwrite, undefined, installOpts);
       printArtifactReport(guidelinesFileName, file.dest, file.status, reportOpts);
 
       const artifactsOverwrite =
@@ -135,7 +155,7 @@ async function main(): Promise<void> {
             `Existing ${CHECK_COMMENTS_ARTIFACT} in ${pathHint(dir)} will be replaced. Continue?`,
             true,
           )));
-      const artifactFiles = await installArtifacts(dir, artifactsOverwrite);
+      const artifactFiles = await installArtifacts(dir, artifactsOverwrite, undefined, installOpts);
       for (const artifactFile of artifactFiles) {
         printArtifactReport(
           CHECK_COMMENTS_ARTIFACT,

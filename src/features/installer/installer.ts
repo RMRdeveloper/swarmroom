@@ -1,4 +1,5 @@
-import { mkdir, readFile, readdir, writeFile, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { assetsDir } from '../../shared/kernel/package-root.ts';
@@ -27,7 +28,11 @@ export function artifactsDest(projectRoot: string, fileName?: string): string {
   return path.join(artifactsDir(projectRoot), name);
 }
 
-export type FileStatus = 'new' | 'updated' | 'skipped';
+export type FileStatus = 'new' | 'updated' | 'skipped' | 'failed';
+
+export interface InstallOptions {
+  readonly dryRun?: boolean;
+}
 export interface InstalledFile {
   readonly dest: string;
   readonly status: FileStatus;
@@ -69,19 +74,50 @@ async function put(
   source: string,
   rewrite: (s: string) => string,
   overwrite: boolean,
+  options: InstallOptions = {},
 ): Promise<FileStatus> {
   const present = await exists(dest);
   if (present && !overwrite) return 'skipped';
-  await mkdir(path.dirname(dest), { recursive: true });
-  const content = await readFile(source, 'utf8');
-  await writeFile(dest, rewrite(content), 'utf8');
-  return present ? 'updated' : 'new';
+  if (options.dryRun) return present ? 'updated' : 'new';
+  try {
+    await mkdir(path.dirname(dest), { recursive: true });
+    const content = await readFile(source, 'utf8');
+    const tmp = `${dest}.tmp.${randomUUID()}`;
+    try {
+      await writeFile(tmp, rewrite(content), 'utf8');
+      await rename(tmp, dest);
+    } catch (error) {
+      try {
+        await unlink(tmp);
+      } catch {
+        /** Ignore cleanup failure — tmp may already be gone. */
+        void 0;
+      }
+      throw error;
+    }
+    return present ? 'updated' : 'new';
+  } catch {
+    return 'failed';
+  }
+}
+
+/** Wrap put for settled batch — preserves destination even on failure. */
+async function putSettled(
+  dest: string,
+  source: string,
+  rewrite: (s: string) => string,
+  overwrite: boolean,
+  options: InstallOptions,
+): Promise<InstalledFile> {
+  const status = await put(dest, source, rewrite, overwrite, options);
+  return { dest, status };
 }
 
 export async function install(
   inst: InstallTarget,
   overwrite: boolean,
   assetsRoot: string = defaultAssetsDir,
+  options: InstallOptions = {},
 ): Promise<InstallReport> {
   const { target, root } = inst;
   const skillsRoot = inst.skillsRoot ?? root;
@@ -91,35 +127,52 @@ export async function install(
   ];
   await assertSourcesExist(sources);
 
-  const files: InstalledFile[] = [];
+  interface Task {
+    readonly dest: string;
+    readonly source: string;
+    readonly rewrite: (s: string) => string;
+  }
+  const tasks: Task[] = [];
 
   for (const name of agents) {
-    const dest = path.join(root, target.agentsDir, `${name}.${target.agentExt}`);
-    files.push({
-      dest,
-      status: await put(dest, agentSource(assetsRoot, name), target.rewriteAgent, overwrite),
+    tasks.push({
+      dest: path.join(root, target.agentsDir, `${name}.${target.agentExt}`),
+      source: agentSource(assetsRoot, name),
+      rewrite: target.rewriteAgent,
     });
   }
 
   for (const name of skills) {
     const destDir = path.join(skillsRoot, target.skillsDir, name);
-    const dest = path.join(destDir, SKILL_FILE_NAME);
-    files.push({
-      dest,
-      status: await put(dest, skillSource(assetsRoot, name), target.rewriteSkill, overwrite),
+    tasks.push({
+      dest: path.join(destDir, SKILL_FILE_NAME),
+      source: skillSource(assetsRoot, name),
+      rewrite: target.rewriteSkill,
     });
-
     const sourceDir = path.join(assetsRoot, 'skills', name);
     const entries = await readdir(sourceDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile() || entry.name === SKILL_FILE_NAME) continue;
-      const companionDest = path.join(destDir, entry.name);
-      files.push({
-        dest: companionDest,
-        status: await put(companionDest, path.join(sourceDir, entry.name), (s) => s, overwrite),
+      tasks.push({
+        dest: path.join(destDir, entry.name),
+        source: path.join(sourceDir, entry.name),
+        rewrite: (s: string): string => s,
       });
     }
   }
+
+  const settled = await Promise.allSettled(
+    tasks.map((t) => putSettled(t.dest, t.source, t.rewrite, overwrite, options)),
+  );
+  const files: InstalledFile[] = settled.map((result, index) => {
+    const task = tasks[index];
+    if (task === undefined) throw new Error('unreachable: missing task');
+    if (result.status === 'fulfilled') return result.value;
+    return { dest: task.dest, status: 'failed' as const };
+  });
+
+  /** TODO #manifest: write .swarmroom/install-manifest.json with files list for rollback/audit */
+  void 0;
 
   if (inst.skillsRoot === undefined || inst.skillsRoot === root) {
     return { target, destRoot: root, files };
@@ -153,11 +206,12 @@ export async function installGuidelines(
   projectRoot: string,
   overwrite: boolean,
   assetsRoot: string = defaultAssetsDir,
+  options: InstallOptions = {},
 ): Promise<InstalledFile> {
   const source = artifactSource(assetsRoot, guidelinesFileName);
   await assertSourcesExist([source]);
   const dest = guidelinesDest(projectRoot);
-  const status = await put(dest, source, (s) => s, overwrite);
+  const status = await put(dest, source, (s) => s, overwrite, options);
   return { dest, status };
 }
 
@@ -172,15 +226,21 @@ export async function installArtifacts(
   projectRoot: string,
   overwrite: boolean,
   assetsRoot: string = defaultAssetsDir,
+  options: InstallOptions = {},
 ): Promise<readonly InstalledFile[]> {
   const sources = ARTIFACTS_ALLOWLIST.map((name) => assetsArtifactSource(assetsRoot, name));
   await assertSourcesExist(sources);
-  const files: InstalledFile[] = [];
-  for (const name of ARTIFACTS_ALLOWLIST) {
-    const dest = artifactsDest(projectRoot, name);
-    const source = assetsArtifactSource(assetsRoot, name);
-    const status = await put(dest, source, (s) => s, overwrite);
-    files.push({ dest, status });
-  }
-  return files;
+  const tasks = ARTIFACTS_ALLOWLIST.map((name) => ({
+    dest: artifactsDest(projectRoot, name),
+    source: assetsArtifactSource(assetsRoot, name),
+  }));
+  const settled = await Promise.allSettled(
+    tasks.map((t) => putSettled(t.dest, t.source, (s) => s, overwrite, options)),
+  );
+  return settled.map((result, index) => {
+    const task = tasks[index];
+    if (task === undefined) throw new Error('unreachable: missing task');
+    if (result.status === 'fulfilled') return result.value;
+    return { dest: task.dest, status: 'failed' as const };
+  });
 }

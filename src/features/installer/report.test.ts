@@ -40,7 +40,7 @@ const fakeCodexTarget = {
 
 describe('report formatters', () => {
   it('hides zero status counts', () => {
-    const lines = formatStatusCounts({ new: 2, updated: 0, skipped: 1 });
+    const lines = formatStatusCounts({ new: 2, updated: 0, skipped: 1, failed: 0 });
     assert.deepEqual(
       lines.map((l) => l.replaceAll(/\u001B\[[0-9;]*m/g, '')),
       ['  2 new', '  1 skipped'],
