@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Deterministic pipeline (sw-pipeline):** trivial iff ALL `(a) ≤20 lines, (b) exactly 1 file, (c) no new dep/import, (d) no design decision, (e) user confirms via `ask_user_question` (Pi/opencode/Claude)` — else non-trivial via `sw-grilling`; guard “if doubt, ask”. `tasksFile` MUST end with `.tasks` (`assertTasksFileSafe` + `/\.tasks$/` in `src/shared/kernel/tasks-format.ts` / `src/features/tasks/task-store.ts`); `validate` ALWAYS before `ready|set|replan` and after graph changes (abort if not `Valid task graph: N tasks.`). Scheduling deterministic via `selectRunnable()` in `src/features/tasks/scheduler.ts` (no re-implementation of disjoint check); token budget via `humanReady()` + task result only.
+- **Deterministic spec (sw-spec):** `src/assets/artifacts/validate-spec.mjs` — validates slug `[a-z0-9-]` ≤60, English headings exactly `Context / Goal / Non-goals / Requirements / Acceptance Criteria / Constraints / Open Questions` in order, no frontmatter `---`, must end with `\n`, non-empty sections, `Given/When/Then` in Acceptance Criteria. Project-root resolution via `packageRoot()` semantics; ambiguous root asks via harness question tool; `existsSync` guard + `ask_user_question` (Overwrite / Pick new slug); ONLY writable path `.swarmroom/specs/<slug>.md` (forbidden `src/**`, `docs/**`, `.swarmroom/tasks/**`, `.swarmroom/artifacts/**`); `ARTIFACTS_ALLOWLIST` now includes `validate-spec.mjs`.
+- **Deterministic transcribe (sw-transcribe-audio):** path resolution via `assetsDir()`/`packageRoot()` semantics (never assume cwd); guardrails for quoted paths with spaces, `~25MB/30min` recommendation, `large-v3-turbo` 809 MB OOM note, stdout validation via `python -m json.tool` (`{"language","text"}`); missing `ffmpeg`/`uv` asks via `ask_user_question` (Install now / Abort) and never auto-installs.
+- **Generated agents baseline:** `scripts/sync-agents.mjs` injects GENERATED baseline (verbatim `CODING_GUIDELINES.md` quick-reference table) + Deterministic tooling blocks into `src/assets/agents/*.md` (tested by `src/assets/agents/sync-agents.test.ts`); CI runs `npm run sync:agents:check` (`package.json` adds `sync:agents` / `sync:agents:check`, `sync:artifacts` / `sync:artifacts:check`).
+- **Grilling Pi mapping:** `sw-grilling` now documents harness question tools explicitly — Pi `ask_user_question` (`header` ≤16, `question` ends with `?`, 2–4 options `{label, description}`, `(Recommended)` first), opencode `question`, Claude `AskUserQuestion`, Cursor `AskQuestion`, Codex `request_user_input`; `< =3` questions per round, skip-first + leverage fill, continuous numbering.
+- **Critic ownership:** `sw-critic` now owns ONLY logical/architecture/YAGNI (concrete counterexample, assumption vs `CONTEXT.md`/`AGENTS.md`, dependency direction/Law of Demeter/CQS/validate-once, over/under-engineering) and explicitly forbids duplicating `sw-code-reviewer`/`sw-verifier` style (guard/SRP/DRY/naming/Comments) — baseline is reference-only.
+
+### Changed
+
+- `README.md` / `AGENTS.md`: Source of truth now lists `validate-spec.mjs`, `findings-validator.mjs`/`check-comments.mjs`, `scripts/sync-agents.mjs` + `sync-agents.test.ts`, `skills/` mirror note via `sync-skills.mjs`, 4-editor install matrix (Cursor/opencode/Claude/Codex frontmatter rewrites), root `CODING_GUIDELINES.md` as gitignored copy via `sync:artifacts`, and deterministic invariants (`tasksFile` MUST `.tasks`, trivial iff ALL, `validate` ALWAYS, ONLY writable `.swarmroom/specs`, GENERATED Deterministic tooling). Commands now include `sync:agents`, `sync:agents:check`, `sync:artifacts`, `sync:skills:check`, `validate-spec` usage and `check:comments --fix` semantics.
+- `.github/workflows/ci.yml`: now runs `sync:artifacts:check`, `sync:agents:check`, `sync:skills:check` on both Node 20/24 matrix; `src/features/tasks-cli`, `scheduler`, `tasks-format` centralized validation (`assertTasksFileSafe`, `LINE_RE`, `CANONICAL_ORDER`).
+
 ## [2.4.0] - 2026-08-28
 
 ### Added

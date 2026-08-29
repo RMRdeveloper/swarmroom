@@ -116,8 +116,8 @@ Each skill folder includes `SKILL.md`. Skills that ship a helper script get
 that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
 
 Project installs also copy `CODING_GUIDELINES.md` to the repo root and
-`check-comments.mjs` + `findings-validator.mjs` to `.swarmroom/artifacts/` (gitignored,
-allowlist `ARTIFACTS_ALLOWLIST`). Global installs skip those artifacts. Codex
+`check-comments.mjs` + `findings-validator.mjs` + `validate-spec.mjs` to `.swarmroom/artifacts/` (gitignored,
+allowlist `ARTIFACTS_ALLOWLIST` in `src/features/installer/installer.ts`). Global installs skip those artifacts. Codex
 global skills go to `~/.agents/skills`.
 
 ## Pipeline
@@ -127,9 +127,13 @@ sw-pipeline → (trivial? implementer → verifier)
             → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
 ```
 
-Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.tasks` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.tasks` (or `swarmroom tasks --tasks-file <runId>.tasks` when the binary is on `PATH`). Parallel runs with distinct `runId` never collide. Format: blocks `field: value` separated by a blank line, no JSON.
+Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.tasks` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.tasks` (or `swarmroom tasks --tasks-file <runId>.tasks` when the binary is on `PATH`). `tasksFile` MUST end with `.tasks` (rejected otherwise; validated by `assertTasksFileSafe` + `/\.tasks$/` in `src/shared/kernel/tasks-format.ts` / `src/features/tasks/task-store.ts`). Parallel runs with distinct `runId` never collide. Format: blocks `field: value` separated by a blank line, no JSON; `validate` ALWAYS before `ready|set|replan` and after graph changes (abort if not `Valid task graph: N tasks.`).
+
+Trivial iff ALL: (a) ≤20 lines, (b) exactly 1 file in `files`, (c) no new dep/import, (d) no decision in design tree, (e) user confirms `trivial` via `ask_user_question` (Pi/opencode/Claude). If doubt, ask — never assume trivial, never bypass `sw-grilling` + `sw-planner`. Trivial graph is `T1 sw-implementer` → `T2 sw-verifier`.
 
 For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
+
+Deterministic scheduling via `selectRunnable()` in `src/features/tasks/scheduler.ts` (do not re-implement disjoint check): dependencies must all be `completed`; two writers (`sw-implementer`, `sw-fixer`) run in parallel only if both declare `files` and sets are disjoint; a writer without `files` runs alone among writers; non-writers may run with anyone. Token budget: pass each subagent only its task plus `result`/`files`/findings of deps via `humanReady()` — never the full `.tasks` or specs.
 
 ## Skills
 
@@ -194,9 +198,14 @@ src/
     ├── artifacts/
     │   ├── CODING_GUIDELINES.md
     │   ├── check-comments.mjs           # deterministic comment gate (JSDoc-only, --fix, copies to .swarmroom/artifacts/)
-    │   └── findings-validator.mjs       # deterministic findings schema validator (FINDING N | Severity | file:line | rule | description)
+    │   ├── findings-validator.mjs       # deterministic findings schema validator (FINDING N | Severity | file:line | rule | description)
+    │   └── validate-spec.mjs            # deterministic spec validator (slug, headings order, Given/When/Then)
     ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
-    └── agents/sw-*.md
+    └── agents/sw-*.md                    # each embeds GENERATED baseline + tooling via sync:agents
+    scripts/
+    ├── sync-agents.mjs                      # inject GENERATED blocks from CODING_GUIDELINES.md (check with sync:agents:check)
+    ├── sync-artifacts.mjs                   # mirror validators + guidelines to root/.swarmroom (check with sync:artifacts:check)
+    └── sync-skills.mjs                      # mirror standalone skills to skills/ (check with sync:skills:check)
 skills/               # spec-compliant mirror for skills.sh — only standalone skills (sw-pipeline excluded, needs agents)
 ├── sw-grilling/SKILL.md
 ├── sw-spec/SKILL.md
@@ -208,15 +217,18 @@ skills/               # spec-compliant mirror for skills.sh — only standalone 
 
 ```bash
 npm install
-npm run types            # tsc --noEmit type check
-npm run lint             # eslint . (strict + unicorn)
-npm run format:check     # prettier --check .
-npm test                 # node:test suite (colocated *.test.ts)
-npm run check:comments   # deterministic gate: JSDoc-only comments under src/features|shared|cli
-npm run check            # types + lint + format:check + test + check:comments (CI)
-npm run setup            # run the CLI (alias for `node src/cli.ts`)
-npm run build            # bundle CLI to dist/cli.js (required for npm publish / npx)
-npm run sync:skills      # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
+npm run types              # tsc --noEmit type check
+npm run lint               # eslint . (strict + unicorn)
+npm run format:check       # prettier --check .
+npm test                   # node:test suite (colocated *.test.ts)
+npm run check:comments     # deterministic gate: JSDoc-only comments under src/features|shared|cli
+npm run check              # types + lint + format:check + test + check:comments (CI)
+npm run setup              # run the CLI (alias for `node src/cli.ts`)
+npm run build              # bundle CLI to dist/cli.js (required for npm publish / npx)
+npm run sync:agents        # regenerate GENERATED baseline + tooling in agents from CODING_GUIDELINES.md
+npm run sync:agents:check  # verify agents are in sync (CI)
+npm run sync:artifacts     # sync CODING_GUIDELINES.md + validators to root/.swarmroom (check with sync:artifacts:check)
+npm run sync:skills        # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
 ```
 
 TypeScript runs directly during development (Node's native type stripping,
@@ -224,12 +236,37 @@ requires Node ≥ 23.6); there is no build step for local work. The published
 package ships a bundled `dist/cli.js` so `npx` and installs from npm only need
 Node ≥ 20.
 
+Agents carry GENERATED blocks — do not hand-edit standards: each `src/assets/agents/sw-*.md` embeds a **Baseline standards** table and a **Deterministic tooling** section injected from `src/assets/artifacts/CODING_GUIDELINES.md` via `npm run sync:agents` (`scripts/sync-agents.mjs`, verified by `src/assets/agents/sync-agents.test.ts` and `npm run sync:agents:check`). Edit the source guideline and re-run `sync:agents` instead of patching agents directly.
+
+Validate specs deterministically:
+
+```bash
+node src/assets/artifacts/validate-spec.mjs --file .swarmroom/specs/<slug>.md
+# in an installed project:
+node .swarmroom/artifacts/validate-spec.mjs --file .swarmroom/specs/<slug>.md
+```
+
+Spec rules: English only, headings exactly `Context / Goal / Non-goals / Requirements / Acceptance Criteria / Constraints / Open Questions` in order, no frontmatter `---`, must end with `\n`, any present section must be non-empty, `Acceptance Criteria` must contain `Given/When/Then`, slug `[a-z0-9-]` ≤60 chars.
+
+## Source of truth
+
+The **only** tracked source of agent/skill content is `src/assets/`:
+
+- `src/assets/agents/*.md` + `src/assets/skills/<name>/SKILL.md`
+- `src/assets/artifacts/CODING_GUIDELINES.md` — single source for the baseline table injected into agents via `scripts/sync-agents.mjs` (`npm run sync:agents` / `sync:agents:check`, tested by `src/assets/agents/sync-agents.test.ts`)
+- `src/assets/artifacts/validate-spec.mjs` — deterministic spec validator (slug `[a-z0-9-]` ≤60, headings order, frontmatter forbidden, `Given/When/Then`), plus `findings-validator.mjs` and `check-comments.mjs` kept in sync via `scripts/sync-artifacts.mjs` (`npm run sync:artifacts:check`)
+- `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`) — only standalone skills (`sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`); `sw-pipeline` is excluded because it delegates to 7 subagents. Do not edit `skills/` by hand, run `npm run sync:skills` instead.
+- The repo-root `CODING_GUIDELINES.md` is a **gitignored verbatim copy** of `src/assets/artifacts/CODING_GUIDELINES.md` produced by `npm run sync:artifacts` (and by the installer); `.swarmroom/artifacts/` (`check-comments.mjs`, `findings-validator.mjs`, `validate-spec.mjs` from `ARTIFACTS_ALLOWLIST` in `src/features/installer/installer.ts`) is also gitignored and installer-generated.
+- Everything under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a gitignored, installer-generated copy — never edit those directly.
+
+Deterministic invariants (must not drift): `tasksFile` MUST end with `.tasks` (`assertTasksFileSafe` + `/\.tasks$/` in `src/shared/kernel/tasks-format.ts` / `src/features/tasks/task-store.ts`); trivial iff ALL conditions (≤20 lines, exactly 1 file, no new dep/import, no design decision, user confirms via `ask_user_question`); `validate` ALWAYS before `ready|set|replan` and after graph changes; `sw-spec` ONLY writable path is `.swarmroom/specs/<slug>.md`; agents carry a GENERATED **Deterministic tooling** section — do not re-implement checks with regex.
+
 ## Adding a tool or agent
 
 - **New editor target:** add one `Target` entry in `src/features/installer/targets.ts` —
-  the rest is automatic.
+  the rest is automatic. The installer copies agents/skills to per-editor roots (Cursor `.cursor/agents` + `.cursor/skills`, opencode `.opencode/agent` + `.opencode/skills`, Claude Code `.claude/agents` + `.claude/skills`, Codex `.codex/agents` + `.agents/skills`) and rewrites frontmatter (`readonly` → `mode: subagent` → TOML `developer_instructions`) so one source stays valid everywhere. For `sw-grilling`, the skill uses the harness question tool when available — Pi `ask_user_question` (`header` ≤16, `question` ends with `?`, 2–4 `options` with `(Recommended)` first), opencode `question`, Claude `AskUserQuestion`, Cursor `AskQuestion`, Codex `request_user_input` — and falls back to markdown only when no tool exists.
 - **New agent:** add its markdown to `src/assets/agents/` and its name to
-  `src/shared/kernel/pipeline.ts`.
+  `src/shared/kernel/pipeline.ts`, then run `npm run sync:agents` to inject the GENERATED baseline/tooling blocks.
 - **New skill:** add `src/assets/skills/<name>/SKILL.md` and append the name
   to `skills` in `src/shared/kernel/pipeline.ts`.
 
