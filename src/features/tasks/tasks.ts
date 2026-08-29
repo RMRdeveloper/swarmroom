@@ -1,37 +1,16 @@
-export const TASK_STATUSES = [
-  'pending',
-  'ready',
-  'running',
-  'blocked',
-  'completed',
-  'failed',
-] as const;
-
-export type TaskStatus = (typeof TASK_STATUSES)[number];
-
-export interface Task {
-  readonly id: string;
-  readonly title: string;
-  readonly description: string;
-  readonly status: TaskStatus;
-  readonly dependsOn: readonly string[];
-  readonly agent?: string;
-  readonly files?: readonly string[];
-  readonly acceptance?: readonly string[];
-  readonly result?: string;
-  readonly error?: string;
-  readonly attempts?: number;
-}
+export {
+  TASK_STATUSES,
+  isTaskStatus,
+  type Task,
+  type TaskStatus,
+} from '../../shared/kernel/tasks-cli-types.ts';
+import type { Task, TaskStatus } from '../../shared/kernel/tasks-cli-types.ts';
 
 export interface TaskGraph {
   readonly tasks: readonly Task[];
 }
 
 const OPEN_STATUSES: ReadonlySet<TaskStatus> = new Set(['pending', 'ready', 'running']);
-
-export function isTaskStatus(value: string): value is TaskStatus {
-  return (TASK_STATUSES as readonly string[]).includes(value);
-}
 
 /** DFS; returns the cycle path (including the repeated start) or null. Fails fast on missing dep to align with createGraph. */
 export function detectCycle(tasks: readonly Task[]): readonly string[] | null {

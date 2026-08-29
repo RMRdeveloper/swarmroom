@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
+import type { TasksCommand } from '../shared/kernel/tasks-cli-types.ts';
+
+import { parseInstallArgs, parseValidateFindingsArgs } from './args.install.ts';
+import { parseTasksArgs } from './args.tasks.ts';
 import { formatHelp, parseArgs } from './args.ts';
 
 describe('parseArgs', () => {
@@ -221,5 +226,35 @@ describe('parseArgs', () => {
     assert.equal(parsed.kind, 'error');
     if (parsed.kind !== 'error') return;
     assert.match(parsed.message, /unknown option: --json/);
+  });
+});
+
+describe('cycle cut', () => {
+  it('cli args does not import from features with value import', () => {
+    const src = readFileSync(new URL('args.ts', import.meta.url), 'utf8');
+    assert.ok(!src.includes("from '../features"), 'should not import from features');
+    assert.ok(!src.includes('from "../features'), 'should not import from features');
+  });
+
+  it('shared kernel exposes TasksCommand type', () => {
+    const cmd: TasksCommand = { kind: 'status' };
+    assert.equal(cmd.kind, 'status');
+  });
+});
+
+describe('split parsers', () => {
+  it('parseTasksArgs handles tasks --tasks-file', () => {
+    const parsed = parseTasksArgs(['--tasks-file', 'a.tasks']);
+    assert.equal(parsed.kind, 'tasks');
+  });
+
+  it('parseInstallArgs handles install flags', () => {
+    const parsed = parseInstallArgs(['--cursor']);
+    assert.equal(parsed.kind, 'ok');
+  });
+
+  it('parseValidateFindingsArgs validates Findings', () => {
+    const parsed = parseValidateFindingsArgs(['--file', 'findings.txt']);
+    assert.equal(parsed.kind, 'validate-findings');
   });
 });
