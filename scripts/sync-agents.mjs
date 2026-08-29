@@ -10,8 +10,6 @@ const BASELINE_MARKER =
   '<!-- GENERATED from src/assets/artifacts/CODING_GUIDELINES.md — do not edit -->';
 const TOOLING_MARKER = '<!-- GENERATED tooling — do not edit -->';
 
-
-
 /**
  * Extract quick-reference table verbatim from CODING_GUIDELINES.md.
  * Keeps header row, separator and 20 data rows exactly as in source.

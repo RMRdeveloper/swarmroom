@@ -43,18 +43,24 @@ hold dependent questions for a later round.
 
 Before each round, inspect the tools available in THIS harness. If a native
 interactive question tool exists, you MUST use it instead of plain markdown.
-Examples (non-exhaustive): `question` in opencode (launches interactive UI),
-`AskUserQuestion` in Claude Code, `ask` / `question` / `interactive_question`
-in Cursor/Codex/others. The requirement is generic: try whatever question tool
-the current CLI/harness exposes.
+Known tools by harness:
+
+- **Pi**: `ask_user_question` — `header` (≤16 chars), `question` (ends with `?`), `options` (2-4 `{label, description, preview?}`); the first option with `(Recommended)` is the recommendation; freeform `Type something.` is auto-appended
+- **opencode**: `question` — `questions[]` with `header`/`question`/`options`
+- **Claude Code**: `AskUserQuestion` — `questions[]` with `header`/`question`/`options`
+- **Cursor**: `AskQuestion` (Plan Mode only)
+- **Codex**: `ask_user_question` (legacy) / `request_user_input`
+  If the harness is not listed, try whatever question tool it exposes — the requirement is generic.
 
 Rules:
 
 1. Prefer the native tool for every question in the batch. If the harness
    accepts multiple questions per tool call, a single call with ≤3 questions
    is valid. Otherwise use one tool call per question. Both satisfy the cap.
-2. Include `title` (`Qn — <short title>`), `body`, and `Recommended` in the
-   fields the tool exposes.
+2. Map fields to the tool's schema:
+   - Pi `ask_user_question`: `title` (`Qn — <short title>`) → `header`, `body` → `question`, `Recommended` → first `options[].label` with `(Recommended)` suffix and `description` explaining the trade-off
+   - opencode/Claude `question`/`AskUserQuestion`: same mapping to `questions[]` — `header`/`question`/`options`
+   - Always respect the tool's limits: Pi 2-4 options per question (1-4 questions per call), opencode/Claude 2-4 options, Cursor/Codex per their schema. Never emit reserved labels `Other`/`Type something.` — they are auto-appended.
 3. If no question tool exists, or the tool call fails, fall back to plain
    markdown (no emoji) below — do not block the round. Never prioritize
    markdown when a tool is available.
@@ -99,7 +105,7 @@ Recommended: <your recommended answer>
 ```
 
 When using the native tool, map the same fields (`title`, `body`,
-`Recommended`) to the tool's parameters instead of emitting markdown.
+`Recommended`) to the tool's parameters instead of emitting markdown — see Rule 2 for Pi/opencode/Claude mapping.
 
 The user may answer in any order, skip and return later, reply
 `go with recommended` to accept every recommendation in the **current** round,
