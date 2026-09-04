@@ -7,7 +7,7 @@ import { after, describe, it } from 'node:test';
 
 import { assetsDir } from '../../shared/kernel/package-root.ts';
 
-import { anyPresent, install, installGuidelines } from './installer.ts';
+import { anyPresent, install, installGuidelines, installPi, piPresent } from './installer.ts';
 import { targets } from './targets.ts';
 
 const cursor = targets.find((t) => t.id === 'cursor');
@@ -248,5 +248,59 @@ describe('installer', () => {
     }
     await walk(root);
     assert.equal(flat.filter((p) => p.includes('.tmp.')).length, 0);
+  });
+});
+
+describe('installer pi', () => {
+  const dirs: string[] = [];
+
+  after(async () => {
+    await Promise.all(dirs.map((d) => rm(d, { recursive: true, force: true })));
+  });
+
+  async function tempDir(): Promise<string> {
+    const dir = await mkdtemp(join(tmpdir(), 'swarmroom-pi-'));
+    dirs.push(dir);
+    return dir;
+  }
+
+  it('installs the extension and skill under root', async () => {
+    const root = await tempDir();
+    const files = await installPi(root, true);
+    assert.equal(files.length, 2);
+    assert.ok(files.every((f) => f.status === 'new'));
+    const ext = await readFile(join(root, 'extensions', 'sw-pipeline.ts'), 'utf8');
+    assert.match(ext, /registerCommand\('sw-pipeline'/);
+    const skill = await readFile(join(root, 'skills', 'sw-pipeline', 'SKILL.md'), 'utf8');
+    assert.match(skill, /name: sw-pipeline/);
+  });
+
+  it('skips without overwrite and updates with overwrite', async () => {
+    const root = await tempDir();
+    await installPi(root, true);
+    const skipped = await installPi(root, false);
+    assert.ok(skipped.every((f) => f.status === 'skipped'));
+    const updated = await installPi(root, true);
+    assert.ok(updated.every((f) => f.status === 'updated'));
+  });
+
+  it('piPresent reflects installed files', async () => {
+    const root = await tempDir();
+    assert.equal(await piPresent(root), false);
+    await installPi(root, true);
+    assert.equal(await piPresent(root), true);
+  });
+
+  it('fails fast when a pi asset is missing', async () => {
+    const root = await tempDir();
+    const emptyAssets = await tempDir();
+    await assert.rejects(() => installPi(root, true, emptyAssets), /missing asset\(s\)/);
+  });
+
+  it('dry-run does not write files', async () => {
+    const root = await tempDir();
+    const files = await installPi(root, true, assetsDir(), { dryRun: true });
+    assert.ok(files.every((f) => f.status === 'new'));
+    assert.equal(existsSync(join(root, 'extensions', 'sw-pipeline.ts')), false);
   });
 });

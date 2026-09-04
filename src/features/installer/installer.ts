@@ -16,6 +16,7 @@ export const ARTIFACTS_ALLOWLIST = [
   'validate-spec.mjs',
 ] as const;
 const SKILL_FILE_NAME = 'SKILL.md';
+const PI_EXTENSION_FILE = 'sw-pipeline.ts';
 const agentSource = (assetsRoot: string, name: string) =>
   path.join(assetsRoot, 'agents', `${name}.md`);
 const skillSource = (assetsRoot: string, name: string) =>
@@ -183,6 +184,53 @@ export async function install(
     return { target, destRoot: root, files };
   }
   return { target, destRoot: root, skillsDestRoot: inst.skillsRoot, files };
+}
+
+/** Pi extension + skill sources (extension is already pi-native, no rewrite). */
+const piExtensionSource = (assetsRoot: string): string =>
+  path.join(assetsRoot, 'extensions', 'pi', PI_EXTENSION_FILE);
+const piSkillSource = (assetsRoot: string): string =>
+  path.join(assetsRoot, 'skills', 'sw-pipeline', SKILL_FILE_NAME);
+
+/**
+ * Install the Pi entry points under a `.pi`-style root (project `.pi` or
+ * global agent dir): the `/sw-pipeline` extension plus the session-driver
+ * skill it resolves. Pi needs no agent `.md` files, so it is not a Target.
+ */
+export async function installPi(
+  root: string,
+  overwrite: boolean,
+  assetsRoot: string = defaultAssetsDir,
+  options: InstallOptions = {},
+): Promise<readonly InstalledFile[]> {
+  const extensionSource = piExtensionSource(assetsRoot);
+  const skillSource = piSkillSource(assetsRoot);
+  await assertSourcesExist([extensionSource, skillSource]);
+  const tasks = [
+    {
+      dest: path.join(root, 'extensions', PI_EXTENSION_FILE),
+      source: extensionSource,
+    },
+    {
+      dest: path.join(root, 'skills', 'sw-pipeline', SKILL_FILE_NAME),
+      source: skillSource,
+    },
+  ];
+  const settled = await Promise.allSettled(
+    tasks.map((t) => putSettled(t.dest, t.source, (s: string): string => s, overwrite, options)),
+  );
+  return settled.map((result, index) => {
+    const task = tasks[index];
+    if (task === undefined) throw new Error('unreachable: missing task');
+    if (result.status === 'fulfilled') return result.value;
+    return { dest: task.dest, status: 'failed' as const };
+  });
+}
+
+/** True when a Pi extension or skill copy already exists under root. */
+export async function piPresent(root: string): Promise<boolean> {
+  if (await exists(path.join(root, 'extensions', PI_EXTENSION_FILE))) return true;
+  return exists(path.join(root, 'skills', 'sw-pipeline', SKILL_FILE_NAME));
 }
 
 export async function anyPresent(

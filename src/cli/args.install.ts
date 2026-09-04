@@ -55,6 +55,7 @@ export function parseInstallArgs(argv: readonly string[]): ParseResult {
   let verbose = false;
   let quiet = false;
   let dryRun = false;
+  let pi = false;
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -83,6 +84,11 @@ export function parseInstallArgs(argv: readonly string[]): ParseResult {
 
     if (arg === '--force') {
       force = true;
+      continue;
+    }
+
+    if (arg === '--pi') {
+      pi = true;
       continue;
     }
 
@@ -122,14 +128,15 @@ export function parseInstallArgs(argv: readonly string[]): ParseResult {
   return {
     kind: 'ok',
     options: {
-      chosen: picked.length > 0 ? picked : targets,
+      chosen: picked.length > 0 ? picked : pi ? [] : targets,
       scope,
       dir,
       force,
       verbose,
       quiet,
-      explicit: picked.length > 0,
+      explicit: picked.length > 0 || pi,
       dryRun,
+      pi,
     },
   };
 }

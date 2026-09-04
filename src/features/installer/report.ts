@@ -117,7 +117,20 @@ export function printArtifactReport(
   }
 }
 
-export function printClosing(chosen: readonly Target[]): void {
-  const labels = chosen.map((t) => t.label).join(', ');
-  console.log(`\nDone. Restart ${labels} to load the agents.`);
+export function printPiReport(
+  root: string,
+  files: readonly InstalledFile[],
+  options: ReportOptions,
+): void {
+  if (options.quiet) return;
+  console.log(`\nPi → ${root}`);
+  for (const line of formatFileLines(files, root)) {
+    console.log(line);
+  }
+}
+
+export function printClosing(chosen: readonly Target[], pi = false): void {
+  const labels = [...chosen.map((t) => t.label), ...(pi ? ['Pi'] : [])];
+  if (labels.length === 0) return;
+  console.log(`\nDone. Restart ${labels.join(', ')} to load the agents.`);
 }

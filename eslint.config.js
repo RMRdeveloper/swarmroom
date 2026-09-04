@@ -20,7 +20,8 @@ const checkCommentsRules = {
 };
 
 export default tseslint.config(
-  globalIgnores(['dist/', 'node_modules/', '.swarmroom/']),
+  globalIgnores(['dist/', 'node_modules/', '.swarmroom/', '.pi/']),
+
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -105,6 +106,20 @@ export default tseslint.config(
   {
     files: ['eslint.config.js'],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    files: ['*.ts'],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    files: ['testeando/**/*.js'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: {
+      globals: globals.node,
+    },
+    rules: {
+      'unicorn/prefer-type-error': 'off',
+    },
   },
   prettier,
 );

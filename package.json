@@ -1,7 +1,7 @@
 {
   "name": "@rmrdeveloper/swarmroom",
-  "version": "2.5.0",
-  "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher, web-researcher) for Cursor, opencode, Claude Code, and Codex.",
+  "version": "2.6.0",
+  "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher, web-researcher) for Cursor, opencode, Claude Code, Codex, and Pi.",
   "type": "module",
   "bin": {
     "swarmroom": "dist/cli.js"

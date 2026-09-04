@@ -9,11 +9,12 @@ agents (planner, implementer, code-reviewer, verifier, fixer, researcher, web-re
 - The **only** tracked source of agent/skill content is `src/assets/`:
   - `src/assets/agents/*.md` — each embeds GENERATED baseline + tooling blocks from `src/assets/artifacts/CODING_GUIDELINES.md` via `scripts/sync-agents.mjs` (verified by `src/assets/agents/sync-agents.test.ts` and `npm run sync:agents:check`)
   - `src/assets/skills/<name>/` (`SKILL.md` plus optional companion files the installer copies as-is)
+  - `src/assets/extensions/pi/*.ts` — Pi TUI slash-command extensions (entry points that spawn the orchestrated runtime; flow control stays in `src/swarm/`)
   - `src/assets/artifacts/CODING_GUIDELINES.md` — single source for the baseline table
   - `src/assets/artifacts/validate-spec.mjs` — deterministic spec validator (slug `[a-z0-9-]` ≤60, headings order, frontmatter forbidden, `Given/When/Then`); `findings-validator.mjs` / `check-comments.mjs` kept in sync via `scripts/sync-artifacts.mjs` (`npm run sync:artifacts:check`)
   - `src/shared/kernel/pipeline.ts`, `tasks-format.ts`, `findings-validator.ts` — deterministic kernels for agent/skill lists, `.tasks` parsing (`assertTasksFileSafe`, `recordToTask`), and `FINDING` validation
 - `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`). It contains **only standalone skills** (`sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`); `sw-pipeline` (orchestrator, delegates to 7 subagents) is excluded because `skills.sh` cannot install agents. Do NOT edit `skills/` by hand; run `npm run sync:skills` (and `npm run sync:skills:check` in CI) — it is derived from `src/assets/skills/` via `scripts/sync-skills.mjs`.
-- `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, `.agents/` are **gitignored installed copies** produced by the CLI (agents/skills rewired per editor via `src/features/installer/targets.ts`: Cursor `.cursor/agents`/`skills`, opencode `.opencode/agent`/`skills`, Claude `.claude/agents`/`skills`, Codex `.codex/agents`→TOML + `.agents/skills`). Do NOT edit them; a re-run of the installer overwrites them.
+- `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, `.agents/`, `.pi/` are **gitignored installed copies** produced by the CLI (agents/skills rewired per editor via `src/features/installer/targets.ts`: Cursor `.cursor/agents`/`skills`, opencode `.opencode/agent`/`skills`, Claude `.claude/agents`/`skills`, Codex `.codex/agents`→TOML + `.agents/skills`). Do NOT edit them; a re-run of the installer overwrites them.
 - The repo-root `CODING_GUIDELINES.md` is a **gitignored verbatim copy** of `src/assets/artifacts/CODING_GUIDELINES.md` produced by `npm run sync:artifacts` (and by the installer). `.swarmroom/artifacts/` (`check-comments.mjs`, `findings-validator.mjs`, `validate-spec.mjs` from `ARTIFACTS_ALLOWLIST` in `src/features/installer/installer.ts`) is also gitignored and installer-generated. Editing `src/assets/...` is the only change that matters.
 - Deterministic invariants (must not drift): `tasksFile` MUST end with `.tasks` (`assertTasksFileSafe` + `/\.tasks$/`); trivial iff ALL (≤20 lines, 1 file, no dep/import, no design decision, user confirms via `ask_user_question`); `validate` ALWAYS before `ready|set|replan` and after graph changes; `sw-spec` ONLY writable path is `.swarmroom/specs/<slug>.md` (forbidden: `src/**`, `docs/**`, `.swarmroom/tasks/**`, `.swarmroom/artifacts/**`); agents carry GENERATED **Deterministic tooling** section — do not re-implement checks with regex.
 
@@ -62,7 +63,7 @@ published bin needs Node ≥ 20.
   with directory layouts and frontmatter rewrites. New editor = add a `Target` here.
   A Target can split agent vs skill roots (`skillsRoot` / `skillsGlobalBase`) and
   set `agentExt`.
-- `src/features/installer/installer.ts` — idempotent copy of assets to target roots:
+- `src/features/installer/installer.ts` — idempotent copy of assets to target roots (`installPi`/`piPresent` handle the Pi entry points: `.pi/extensions/sw-pipeline.ts` + `.pi/skills/sw-pipeline/SKILL.md`; Pi needs no agent `.md` files so it is not a `Target`):
   skips existing files unless `overwrite`/`--force`; fails fast if any asset is missing.
 - `src/features/installer/report.ts` / `prompts.ts` — CLI reporting (displayPath, status counts) and interactive selection.
 - Agent/skill files in `src/assets/` carry Cursor-specific frontmatter

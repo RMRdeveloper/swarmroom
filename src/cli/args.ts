@@ -3,6 +3,7 @@ import { packageVersion as cachedPackageVersion } from '../shared/kernel/package
 import type { ParseResult } from '../shared/kernel/tasks-cli-types.ts';
 
 import { parseInstallArgs, parseValidateFindingsArgs } from './args.install.ts';
+import { parseSwarmArgs } from './args.swarm.ts';
 import { parseTasksArgs } from './args.tasks.ts';
 
 export type {
@@ -27,6 +28,7 @@ export function formatHelp(): string {
   const version = packageVersion();
   const rows: readonly (readonly [string, string])[] = [
     [editorFlagLine(), 'install for those editors (default: all)'],
+    ['--pi', 'also install the Pi extension + skill (.pi, project or global)'],
     ['--global', 'install into the home directory (default: this project)'],
     ['--dir <path>', 'install into another project root'],
     ['--force', 'overwrite existing files without asking'],
@@ -35,6 +37,16 @@ export function formatHelp(): string {
     ['-q, --quiet', 'suppress per-target summaries (opening/closing still print)'],
     ['tasks [command]', 'inspect or mutate the task graph'],
     ['--tasks-file <path>', 'task graph file under .swarmroom/tasks/ (required for tasks)'],
+    [
+      'swarm run --harness <opencode|pi> --request <text>',
+      'run the orchestrated pipeline through one harness CLI',
+    ],
+    [
+      'swarm start --harness <opencode|pi> --request <text>',
+      'start a session-driven run (prints next action)',
+    ],
+    ['swarm step --run <id>', 'advance one persisted agent step'],
+    ['swarm status --run <id>', 'show persisted run phase and next action'],
     ['validate-findings --file <path> [--strict]', 'validate FINDING lines (deterministic)'],
     ['-h, --help', 'show this help'],
     ['-V, --version', 'print version'],
@@ -49,6 +61,10 @@ Usage:
   swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
   npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path> [validate|ready|set <id> <status>|replan --file <path>] [--dir <path>]
   swarmroom validate-findings --file <path> [--strict]
+  swarmroom swarm run --harness <opencode|pi> --request <text> [--dir <path>] [--trivial]
+  swarmroom swarm start --harness <opencode|pi> --request <text> [--dir <path>] [--trivial]
+  swarmroom swarm step --run <id> [--dir <path>] [--allow-write]
+  swarmroom swarm status --run <id> [--dir <path>]
 
 Also:
   node src/cli.ts [options]
@@ -68,6 +84,9 @@ With no editor flags in a TTY, prompts interactively. Re-run to update installed
 export function parseArgs(argv: readonly string[]): ParseResult {
   if (argv[0] === 'tasks') {
     return parseTasksArgs(argv.slice(1));
+  }
+  if (argv[0] === 'swarm') {
+    return parseSwarmArgs(argv.slice(1));
   }
   if (argv[0] === 'validate-findings') {
     return parseValidateFindingsArgs(argv.slice(1));

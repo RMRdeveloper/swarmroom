@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { homedir } from 'node:os';
+import path from 'node:path';
 
 import { packageVersion, parseArgs, formatHelp } from './cli/args.ts';
 import {
@@ -10,15 +11,20 @@ import {
   install,
   installArtifacts,
   installGuidelines,
+  installPi,
+  piPresent,
 } from './features/installer/installer.ts';
 import { confirm, close, selectMultiple } from './features/installer/prompts.ts';
 import {
   printArtifactReport,
   printClosing,
   printOpening,
+  printPiReport,
   printTargetReport,
 } from './features/installer/report.ts';
-import { scopeRoot, scopeSkillsRoot } from './features/installer/targets.ts';
+import { assertHomedirSafe, scopeRoot, scopeSkillsRoot } from './features/installer/targets.ts';
+import { runSwarmCommand } from './features/swarm-cli/run.ts';
+import { runSwarmStart, runSwarmStatus, runSwarmStep } from './features/swarm-cli/steps.ts';
 import { runTasks } from './features/tasks-cli/tasks.ts';
 import { assertInstallTargetSafe } from './shared/kernel/install-targets.ts';
 import * as style from './shared/kernel/style.ts';
@@ -54,6 +60,24 @@ async function main(): Promise<void> {
     }
     if (parsed.kind === 'tasks') {
       await runTasks({ dir: parsed.dir, tasksFile: parsed.tasksFile, command: parsed.command });
+      return;
+    }
+    if (parsed.kind === 'swarm-run') {
+      const status = await runSwarmCommand(parsed);
+      if (status === 'failed') process.exitCode = 1;
+      return;
+    }
+    if (parsed.kind === 'swarm-start') {
+      await runSwarmStart(parsed);
+      return;
+    }
+    if (parsed.kind === 'swarm-step') {
+      const run = await runSwarmStep(parsed);
+      if (run.status === 'failed') process.exitCode = 1;
+      return;
+    }
+    if (parsed.kind === 'swarm-status') {
+      runSwarmStatus(parsed);
       return;
     }
     if (parsed.kind === 'validate-findings') {
@@ -132,6 +156,36 @@ async function main(): Promise<void> {
       }
     }
 
+    if (parsed.options.pi) {
+      const piRoot =
+        scope === 'global' ? path.join(homedir(), '.pi', 'agent') : path.join(dir, '.pi');
+      try {
+        if (scope === 'global') assertHomedirSafe(piRoot, force);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        printError(message);
+        process.exitCode = 1;
+      }
+      if (process.exitCode !== 1) {
+        const overwrite =
+          force ||
+          (TTY &&
+            (await piPresent(piRoot)) &&
+            (await confirm(
+              `Existing Pi files in ${pathHint(piRoot)} will be replaced. Continue?`,
+              true,
+            )));
+        try {
+          const files = await installPi(piRoot, overwrite, undefined, installOpts);
+          printPiReport(piRoot, files, reportOpts);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          printError(`Pi: ${message}`);
+          process.exitCode = 1;
+        }
+      }
+    }
+
     if (scope === 'project') {
       const overwrite =
         force ||
@@ -163,7 +217,7 @@ async function main(): Promise<void> {
       }
     }
 
-    printClosing(chosen);
+    printClosing(chosen, parsed.options.pi);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     printError(message);

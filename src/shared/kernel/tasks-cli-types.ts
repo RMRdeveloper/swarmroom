@@ -65,6 +65,56 @@ export type ParseResult =
       readonly kind: 'validate-findings';
       readonly file: string;
       readonly strict: boolean;
+    }
+  | {
+      readonly kind: 'swarm-run';
+      readonly dir: string;
+      /** Only harness the orchestrated runtime supports. */
+      readonly harness: 'opencode' | 'pi';
+      readonly request: string;
+      readonly model?: string;
+      /** User trivial confirmation. Undefined means ask via gate when interactive. */
+      readonly trivial?: boolean;
+      readonly lines?: number;
+      readonly files?: number;
+      readonly addsDependency?: boolean;
+      readonly designDecision?: boolean;
+      readonly settledUnderstanding?: string;
+      readonly settledFile?: string;
+      readonly maxPasses?: number;
+      readonly timeoutS?: number;
+      readonly allowWrite?: boolean;
+    }
+  | {
+      readonly kind: 'swarm-start';
+      readonly dir: string;
+      /** Only harness the orchestrated runtime supports. */
+      readonly harness: 'opencode' | 'pi';
+      readonly request: string;
+      readonly model?: string;
+      /** Trivial only with the flag; undefined means non-trivial. */
+      readonly trivial?: boolean;
+      readonly lines?: number;
+      readonly files?: number;
+      readonly addsDependency?: boolean;
+      readonly designDecision?: boolean;
+      readonly settledUnderstanding?: string;
+      readonly settledFile?: string;
+      readonly maxPasses?: number;
+      readonly timeoutS?: number;
+    }
+  | {
+      readonly kind: 'swarm-step';
+      readonly dir: string;
+      readonly runId: string;
+      readonly model?: string;
+      readonly timeoutS?: number;
+      readonly allowWrite: boolean;
+    }
+  | {
+      readonly kind: 'swarm-status';
+      readonly dir: string;
+      readonly runId: string;
     };
 
 /** Install options returned on successful parse. */
@@ -77,4 +127,6 @@ export interface Options {
   readonly quiet: boolean;
   readonly explicit: boolean;
   readonly dryRun: boolean;
+  /** Install the Pi extension + skill instead of (or besides) editor targets. */
+  readonly pi: boolean;
 }

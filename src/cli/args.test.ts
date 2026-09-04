@@ -132,6 +132,24 @@ describe('parseArgs', () => {
     assert.equal(parsed.options.explicit, true);
   });
 
+  it('parses --pi without editors', () => {
+    const parsed = parseArgs(['--pi']);
+    assert.equal(parsed.kind, 'ok');
+    if (parsed.kind !== 'ok') return;
+    assert.equal(parsed.options.pi, true);
+    assert.equal(parsed.options.explicit, true);
+    assert.equal(parsed.options.chosen.length, 0);
+  });
+
+  it('parses --pi alongside an editor flag', () => {
+    const parsed = parseArgs(['--pi', '--opencode']);
+    assert.equal(parsed.kind, 'ok');
+    if (parsed.kind !== 'ok') return;
+    assert.equal(parsed.options.pi, true);
+    assert.equal(parsed.options.chosen.length, 1);
+    assert.equal(parsed.options.chosen[0]?.id, 'opencode');
+  });
+
   it('formatHelp mentions --codex', () => {
     assert.match(formatHelp(), /--codex/);
   });
