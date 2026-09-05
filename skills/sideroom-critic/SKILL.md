@@ -1,5 +1,5 @@
 ---
-name: sw-critic
+name: sideroom-critic
 description: Adversarially stress-test a plan or diff for concrete logical, architectural, and scope failures.
 license: MIT
 ---

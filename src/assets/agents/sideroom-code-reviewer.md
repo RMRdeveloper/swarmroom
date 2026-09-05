@@ -1,5 +1,5 @@
 ---
-name: sw-code-reviewer
+name: sideroom-code-reviewer
 description: Reviews an implementation for correctness and maintainability.
 readonly: true
 ---

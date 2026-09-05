@@ -1,7 +1,7 @@
 import type { Language } from './core/types.ts';
 import { LANGUAGES } from './core/types.ts';
 
-/** Options accepted by Pi's `/swarmroom` extension command. */
+/** Options accepted by Pi's `/sideroom` extension command. */
 export type PiCommand =
   | { readonly kind: 'help' }
   | { readonly kind: 'error'; readonly message: string }
@@ -73,9 +73,9 @@ export function parsePiCommand(args: string): PiCommand {
   };
 }
 
-/** Help text shown by `/swarmroom --help` inside Pi. */
+/** Help text shown by `/sideroom --help` inside Pi. */
 export function formatPiCommandHelp(): string {
-  return `Usage: /swarmroom [request] [options]
+  return `Usage: /sideroom [request] [options]
 
 Options:
   --language <name>            typescript | javascript | php-laravel | python | java
@@ -83,7 +83,7 @@ Options:
   --read-only                  Do not grant write-capable tools
   -h, --help                   Show this help
 
-Run Pi from the repository you want to change. Swarmroom creates no project-local state.`;
+Run Pi from the repository you want to change. Sideroom creates no project-local state.`;
 }
 
 function splitArguments(source: string): readonly string[] | string {

@@ -1,7 +1,7 @@
 import type { AgentId } from './types.ts';
 
 /** A package-owned skill that can add policy to exactly one role request. */
-export type PipelineSkill = 'sw-grilling';
+export type PipelineSkill = 'sideroom-grilling';
 
 /** Small port between the pipeline and a coding-agent runtime. */
 export interface ModelProvider {

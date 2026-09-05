@@ -1,5 +1,5 @@
 ---
-name: sw-verifier
+name: sideroom-verifier
 description: Independently verifies an implementation against its acceptance criteria.
 readonly: true
 ---

@@ -21,13 +21,13 @@ test('loads each shipped language guideline', () => {
 });
 
 test('combines the complete role prompt with its language policy', () => {
-  const role = getAgentDefinition('sw-implementer');
+  const role = getAgentDefinition('sideroom-implementer');
   assert.equal(role.readonly, false);
   assert.match(role.instructions, /Read-first/);
   assert.match(
-    buildSystemPrompt('sw-implementer', 'php-laravel'),
+    buildSystemPrompt('sideroom-implementer', 'php-laravel'),
     /PHP Laravel Coding Guidelines/,
   );
-  assert.match(buildSystemPrompt('sw-implementer', 'php-laravel'), /SRP/);
+  assert.match(buildSystemPrompt('sideroom-implementer', 'php-laravel'), /SRP/);
   assert.match(getSharedGuidelines(), /# Guidelines Template/);
 });

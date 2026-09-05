@@ -23,7 +23,7 @@ export function getPackageRoot(): string {
   let directory = path.dirname(fileURLToPath(import.meta.url));
   while (!existsSync(path.join(directory, 'package.json'))) {
     const parent = path.dirname(directory);
-    if (parent === directory) throw new Error('cannot locate Swarmroom assets');
+    if (parent === directory) throw new Error('cannot locate Sideroom assets');
     directory = parent;
   }
   return directory;

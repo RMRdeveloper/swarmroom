@@ -31,13 +31,13 @@ export interface GrillingAgent {
   run(input: GrillingInput): Promise<GrillingResult>;
 }
 
-/** Invoke the packaged sw-grilling skill in a Pi session. */
+/** Invoke the packaged sideroom-grilling skill in a Pi session. */
 export function createGriller(model: ModelProvider): GrillingAgent {
   return {
     async run(input) {
       const value = await model.generate<unknown>({
-        agent: 'sw-planner',
-        skill: 'sw-grilling',
+        agent: 'sideroom-planner',
+        skill: 'sideroom-grilling',
         input,
         schema:
           '{ status: "questions", questions: [{ id: string, title: string, question: string, recommendation: string }] } | { status: "settled", summary: string }',

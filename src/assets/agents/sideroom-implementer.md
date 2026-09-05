@@ -1,5 +1,5 @@
 ---
-name: sw-implementer
+name: sideroom-implementer
 description: Implements one approved plan task in the working tree.
 readonly: false
 ---

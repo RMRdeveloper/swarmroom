@@ -1,6 +1,6 @@
 ---
-name: sw-spec
-description: Draft a lightweight, implementation-ready feature specification without creating Swarmroom project state.
+name: sideroom-spec
+description: Draft a lightweight, implementation-ready feature specification without creating Sideroom project state.
 license: MIT
 ---
 
@@ -8,7 +8,7 @@ license: MIT
 
 Use this skill when the user asks for a standalone specification rather than an
 implementation. Read repository instructions and relevant domain context first.
-If scope or product decisions remain open, run `sw-grilling` in the current
+If scope or product decisions remain open, run `sideroom-grilling` in the current
 conversation and wait for a settled understanding.
 
 Draft one English Markdown document with these sections, in this order:
@@ -31,7 +31,7 @@ under **Open Questions**.
 
 Show the complete draft in the conversation. Only write it when the user names
 an explicit destination and confirms that write. Never initialize
-`.swarmroom/`, create task state, or write a specification merely as a side
+project-local Sideroom state, create task state, or write a specification merely as a side
 effect of running this skill.
 
 After confirmation, hand the settled document to the planner; do not implement

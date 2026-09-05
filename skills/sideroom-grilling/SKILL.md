@@ -1,5 +1,5 @@
 ---
-name: sw-grilling
+name: sideroom-grilling
 description: Clarify a non-trivial feature, plan, or decision through dependency-aware question rounds before implementation.
 license: MIT
 ---
@@ -22,7 +22,7 @@ domain concept, not a generic technical word. Prefer one canonical term; use
 `Avoid:` terms to prevent synonyms from blurring a decision. If the repository
 has multiple contexts, use its map to identify the relevant one and ask only
 when the relationship remains unclear. Do not create context files or any
-project-local Swarmroom state.
+project-local Sideroom state.
 
 The user owns decisions: desired outcome, scope, compatibility, user-visible
 behavior, priorities, and accepted trade-offs.
@@ -68,9 +68,9 @@ risks the user accepted. Do not implement or plan until this is confirmed.
 Hand the confirmed understanding to the planner. It constrains the plan; it is
 not an implementation task.
 
-## Swarmroom pipeline mode
+## Sideroom pipeline mode
 
-When invoked by Swarmroom with a requested JSON schema, perform exactly one
+When invoked by Sideroom with a requested JSON schema, perform exactly one
 round. Return only the requested JSON value:
 
 - `status: "questions"` with one to three frontier questions, each with `id`,

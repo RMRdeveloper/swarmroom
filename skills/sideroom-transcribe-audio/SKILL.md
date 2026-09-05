@@ -1,5 +1,5 @@
 ---
-name: sw-transcribe-audio
+name: sideroom-transcribe-audio
 description: Transcribe a local mp3, wav, m4a, ogg, or opus recording to JSON text.
 license: MIT
 compatibility: Requires ffmpeg on PATH, Python 3, uv, and a first-run Whisper large-v3-turbo download.

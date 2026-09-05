@@ -12,10 +12,10 @@ import type {
 import type { PipelineResult } from './core/types.ts';
 import { formatPiCommandHelp, parsePiCommand } from './pi-command.ts';
 
-const VERSION = '4.0.3';
-const TRACE_TYPE = 'swarmroom:run';
-const STATUS_KEY = 'swarmroom';
-const PROGRESS_WIDGET_KEY = 'swarmroom-progress';
+const VERSION = '5.0.0';
+const TRACE_TYPE = 'sideroom:run';
+const STATUS_KEY = 'sideroom';
+const PROGRESS_WIDGET_KEY = 'sideroom-progress';
 const RECOMMENDATION_PREFIX = 'Use recommendation: ';
 const CUSTOM_ANSWER = 'Write a different answer…';
 const PIPELINE_PHASES: readonly PipelineStageEvent['phase'][] = [
@@ -36,11 +36,10 @@ const PHASE_LABELS: Readonly<Record<PipelineStageEvent['phase'], string>> = {
   pipeline: 'Pipeline',
 };
 
-/** Register the global `/swarmroom` Pi command. */
-export default function registerSwarmroom(pi: ExtensionAPI): void {
-  pi.registerCommand('swarmroom', {
-    description:
-      'Run the isolated Swarmroom coding pipeline in this Pi project',
+/** Register the global `/sideroom` Pi command. */
+export default function registerSideroom(pi: ExtensionAPI): void {
+  pi.registerCommand('sideroom', {
+    description: 'Run the isolated Sideroom coding pipeline in this Pi project',
     handler: async (args, context) => {
       const command = parsePiCommand(args);
       if (command.kind === 'help') {
@@ -48,7 +47,7 @@ export default function registerSwarmroom(pi: ExtensionAPI): void {
         return;
       }
       if (command.kind === 'error') {
-        context.ui.notify(`Swarmroom: ${command.message}`, 'error');
+        context.ui.notify(`Sideroom: ${command.message}`, 'error');
         return;
       }
 
@@ -101,11 +100,11 @@ async function requestFor(
 ): Promise<string | undefined> {
   if (request !== undefined && request.trim().length > 0) return request;
   if (!context.hasUI) {
-    context.ui.notify('Swarmroom needs a request after /swarmroom.', 'error');
+    context.ui.notify('Sideroom needs a request after /sideroom.', 'error');
     return undefined;
   }
   const response = await context.ui.input(
-    'What should Swarmroom build?',
+    'What should Sideroom build?',
     'Describe the change',
   );
   return response === undefined || response.trim().length === 0
@@ -168,7 +167,7 @@ function formatQuestionPrompt(
   totalQuestions: number,
 ): string {
   return [
-    `Swarmroom · Grilling question ${questionNumber}/${totalQuestions}`,
+    `Sideroom · Grilling question ${questionNumber}/${totalQuestions}`,
     question.title,
     question.question,
     `Recommended answer: ${question.recommendation}`,
@@ -199,7 +198,7 @@ function recordRun(
 ): void {
   const details = {
     version: VERSION,
-    source: 'swarmroom-pi-extension',
+    source: 'sideroom-pi-extension',
     cwd: context.cwd,
     language,
     model: modelReference(context),
@@ -230,8 +229,8 @@ function formatRun(
     ...new Set(result.implementations.flatMap((item) => item.filesChanged)),
   ];
   return [
-    `Swarmroom ${result.status === 'completed' ? 'completed' : 'failed'}`,
-    'Provenance: swarmroom Pi extension → isolated Pi SDK role sessions.',
+    `Sideroom ${result.status === 'completed' ? 'completed' : 'failed'}`,
+    'Provenance: sideroom Pi extension → isolated Pi SDK role sessions.',
     `Roles completed: ${phases.length === 0 ? '-' : phases.join(', ')}`,
     `Files changed: ${files.length === 0 ? '-' : files.join(', ')}`,
     `Findings: ${String(result.findings.length)}`,
@@ -275,11 +274,11 @@ class PipelineProgress {
   }
 
   private render(): void {
-    this.context.ui.setStatus(STATUS_KEY, `Swarmroom: ${this.message}`);
+    this.context.ui.setStatus(STATUS_KEY, `Sideroom: ${this.message}`);
     this.context.ui.setWidget(
       PROGRESS_WIDGET_KEY,
       [
-        'Swarmroom pipeline',
+        'Sideroom pipeline',
         `Status: ${this.message}`,
         'Runtime: direct Pi SDK sessions · isolated roles · no fallback agents',
         '',

@@ -2,8 +2,8 @@
 
 ## Scope
 
-Swarmroom is a global Pi package with one active coding-agent runtime: Pi via
-`@earendil-works/pi-coding-agent`. Its entry point is the `/swarmroom` Pi
+Sideroom is a global Pi package with one active coding-agent runtime: Pi via
+`@earendil-works/pi-coding-agent`. Its entry point is the `/sideroom` Pi
 extension command. Do not add a standalone CLI, editor installers,
 project-local harness files, task persistence, or a subprocess wrapper around
 Pi. Preserve the packaged Pi skills; they are loaded through the Pi package
@@ -34,17 +34,24 @@ npm run format:check
 npm test
 npm run check
 npm run build
+npm run changeset
+npm run changeset:status
+npm run version-packages
+npm run release
 ```
 
 Use Biome for formatting and linting; do not add ESLint, Prettier, or their
-plugins. The package requires Node 22.19 or later because Pi requires it.
+plugins. Commit messages follow Conventional Commits and are checked by the
+`commit-msg` hook. The package requires Node 22.19 or later because Pi
+requires it.
 
 ## Design rules
 
-- Keep the pipeline in memory. It must not initialize or write Swarmroom
+- Keep the pipeline in memory. It must not initialize or write Sideroom
   configuration into the target repository.
 - Keep packaged skills global to the install. A skill may write only when the
-  user explicitly asks for an output path; it must never create `.swarmroom/`.
+  user explicitly asks for an output path; it must never create project-local
+  Sideroom state.
 - Keep role routing in TypeScript; Markdown contributes instructions only.
 - Only implementer and fixer may receive write-capable Pi tools.
 - Before every write-capable tool call, the Pi runtime must place the shared

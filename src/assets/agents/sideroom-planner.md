@@ -1,5 +1,5 @@
 ---
-name: sw-planner
+name: sideroom-planner
 description: Plans a requested code change before implementation.
 readonly: true
 ---

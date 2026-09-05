@@ -8,7 +8,7 @@ import {
 import { createGriller } from './core/grilling.ts';
 import {
   type PipelineObserver,
-  SwarmOrchestrator,
+  SideroomOrchestrator,
 } from './core/orchestrator.ts';
 import type { Language } from './core/types.ts';
 import { createPiModelProvider } from './runtimes/pi.ts';
@@ -21,14 +21,14 @@ export function createPipeline(options: {
   readonly maxFixPasses?: number;
   readonly allowWrite?: boolean;
   readonly onStage?: PipelineObserver;
-}): SwarmOrchestrator {
+}): SideroomOrchestrator {
   const model = createPiModelProvider({
     dir: options.dir,
     language: options.language,
     ...(options.model === undefined ? {} : { model: options.model }),
     allowWrite: options.allowWrite,
   });
-  return new SwarmOrchestrator({
+  return new SideroomOrchestrator({
     planner: createPlanner(model),
     implementer: createImplementer(model),
     reviewer: createReviewer(model),

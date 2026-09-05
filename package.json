@@ -1,7 +1,7 @@
 {
-  "name": "@rmrdeveloper/swarmroom",
-  "version": "4.0.3",
-  "description": "A global Pi package that runs an isolated coding-agent pipeline through /swarmroom.",
+  "name": "@rmrdeveloper/sideroom-pi",
+  "version": "5.0.0",
+  "description": "A global Pi package that runs an isolated coding-agent pipeline through /sideroom.",
   "type": "module",
   "files": [
     "dist",
@@ -11,13 +11,18 @@
   "scripts": {
     "build": "esbuild src/pi-extension.ts --bundle --platform=node --format=esm --outfile=dist/pi-extension.js --packages=external",
     "prepublishOnly": "npm run check && npm run build",
+    "changeset": "changeset",
+    "changeset:status": "changeset status",
+    "version-packages": "changeset version",
+    "release": "npm run check && changeset publish",
+    "commitlint": "commitlint",
     "types": "tsc --noEmit",
     "test": "node --test src/core/agents.test.ts src/core/catalog.test.ts src/core/findings.test.ts src/core/grilling.test.ts src/core/orchestrator.test.ts src/pi-command.test.ts src/runtimes/pi.test.ts",
-    "lint": "biome lint src",
-    "lint:fix": "biome lint --write src",
-    "format": "biome format --write src package.json biome.json",
-    "format:check": "biome format src package.json biome.json",
-    "check": "npm run types && biome check src package.json biome.json && npm test"
+    "lint": "biome lint src commitlint.config.mjs",
+    "lint:fix": "biome lint --write src commitlint.config.mjs",
+    "format": "biome format --write src package.json biome.json commitlint.config.mjs .changeset/config.json",
+    "format:check": "biome format src package.json biome.json commitlint.config.mjs .changeset/config.json",
+    "check": "npm run types && biome check src package.json biome.json commitlint.config.mjs .changeset/config.json && npm test"
   },
   "engines": {
     "node": ">=22.19.0"
@@ -55,6 +60,9 @@
   "devDependencies": {
     "@earendil-works/pi-coding-agent": "0.84.4",
     "@biomejs/biome": "2.5.11",
+    "@changesets/cli": "^3.0.2",
+    "@commitlint/cli": "^21.2.2",
+    "@commitlint/config-conventional": "^21.2.2",
     "@types/node": "^22.20.1",
     "esbuild": "^0.25.0",
     "typescript": "^5.6.0"

@@ -31,7 +31,7 @@ export interface PipelineStageEvent {
 /** Host-owned observer; it never writes pipeline state into the target project. */
 export type PipelineObserver = (event: PipelineStageEvent) => void;
 
-/** Dependencies used by the only pipeline currently scheduled by Swarmroom. */
+/** Dependencies used by the only pipeline currently scheduled by Sideroom. */
 export interface OrchestratorOptions {
   readonly planner: PipelineAgent<PlannerInput, Plan>;
   readonly implementer: PipelineAgent<
@@ -54,7 +54,7 @@ export type GrillingAnswerer = (
 ) => Promise<readonly GrillingAnswer[] | undefined>;
 
 /** In-memory orchestration: no task files, project initialization, or harness state. */
-export class SwarmOrchestrator {
+export class SideroomOrchestrator {
   private readonly options: OrchestratorOptions & {
     readonly maxFixPasses: number;
     readonly maxGrillingRounds: number;
@@ -188,7 +188,7 @@ export class SwarmOrchestrator {
       });
       if (answerQuestions === undefined) {
         throw new Error(
-          'Grilling needs user decisions; run swarmroom in an interactive terminal.',
+          'Grilling needs user decisions; run sideroom in an interactive terminal.',
         );
       }
       const roundAnswers = await answerQuestions(result.questions);

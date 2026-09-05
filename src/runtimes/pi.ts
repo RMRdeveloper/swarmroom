@@ -35,7 +35,7 @@ export interface PiSessionOptions {
   readonly systemPrompt: string;
 }
 
-/** Factory seam for tests and applications embedding Swarmroom. */
+/** Factory seam for tests and applications embedding Sideroom. */
 export type PiSessionFactory = (
   options: PiSessionOptions,
 ) => Promise<PiSession>;
@@ -159,8 +159,8 @@ function systemPromptFor(
     );
   }
   sections.push(
-    '## Swarmroom execution boundary',
-    'Run only this Swarmroom role through the Pi SDK. Do not delegate work to another agent, harness, task runner, or skill with a similar name. Never use or claim a fallback agent. The only valid pipeline roles are sw-planner, sw-implementer, sw-code-reviewer, sw-verifier, and sw-fixer.',
+    '## Sideroom execution boundary',
+    'Run only this Sideroom role through the Pi SDK. Do not delegate work to another agent, harness, task runner, or skill with a similar name. Never use or claim a fallback agent. The only valid pipeline roles are sideroom-planner, sideroom-implementer, sideroom-code-reviewer, sideroom-verifier, and sideroom-fixer.',
   );
   return sections.join('\n\n');
 }
@@ -362,7 +362,7 @@ function parseJsonResponse(text: string): unknown {
 function reportAbortFailure(error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(
-    `Swarmroom could not abort a timed-out Pi session: ${message}\n`,
+    `Sideroom could not abort a timed-out Pi session: ${message}\n`,
   );
 }
 

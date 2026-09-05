@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { SwarmOrchestrator } from './orchestrator.ts';
+import { SideroomOrchestrator } from './orchestrator.ts';
 
 test('repairs blocking findings without creating project-local state', async () => {
   let reviewCalls = 0;
   let fixes = 0;
-  const pipeline = new SwarmOrchestrator({
+  const pipeline = new SideroomOrchestrator({
     planner: {
-      id: 'sw-planner',
+      id: 'sideroom-planner',
       run: async () => ({
         summary: 'plan',
         tasks: [{ id: 'T1', title: 'change' }],
@@ -16,7 +16,7 @@ test('repairs blocking findings without creating project-local state', async () 
       }),
     },
     implementer: {
-      id: 'sw-implementer',
+      id: 'sideroom-implementer',
       run: async () => ({
         taskId: 'T1',
         filesChanged: ['src/a.ts'],
@@ -24,7 +24,7 @@ test('repairs blocking findings without creating project-local state', async () 
       }),
     },
     reviewer: {
-      id: 'sw-code-reviewer',
+      id: 'sideroom-code-reviewer',
       run: async () => {
         reviewCalls += 1;
         return reviewCalls === 1
@@ -40,9 +40,9 @@ test('repairs blocking findings without creating project-local state', async () 
           : [];
       },
     },
-    verifier: { id: 'sw-verifier', run: async () => [] },
+    verifier: { id: 'sideroom-verifier', run: async () => [] },
     fixer: {
-      id: 'sw-fixer',
+      id: 'sideroom-fixer',
       run: async () => {
         fixes += 1;
         return 'fixed';
@@ -60,7 +60,7 @@ test('hands the settled grilling context to the planner in memory', async () => 
   let plannedRequest = '';
   let grillingCalls = 0;
   const grillingEvents: string[] = [];
-  const pipeline = new SwarmOrchestrator({
+  const pipeline = new SideroomOrchestrator({
     griller: {
       run: async () => {
         grillingCalls += 1;
@@ -83,7 +83,7 @@ test('hands the settled grilling context to the planner in memory', async () => 
       },
     },
     planner: {
-      id: 'sw-planner',
+      id: 'sideroom-planner',
       run: async ({ request }) => {
         plannedRequest = request;
         return {
@@ -94,12 +94,12 @@ test('hands the settled grilling context to the planner in memory', async () => 
       },
     },
     implementer: {
-      id: 'sw-implementer',
+      id: 'sideroom-implementer',
       run: async () => ({ taskId: 'T1', filesChanged: [], summary: 'done' }),
     },
-    reviewer: { id: 'sw-code-reviewer', run: async () => [] },
-    verifier: { id: 'sw-verifier', run: async () => [] },
-    fixer: { id: 'sw-fixer', run: async () => 'not needed' },
+    reviewer: { id: 'sideroom-code-reviewer', run: async () => [] },
+    verifier: { id: 'sideroom-verifier', run: async () => [] },
+    fixer: { id: 'sideroom-fixer', run: async () => 'not needed' },
     onStage: (event) => {
       if (event.phase === 'grilling') {
         grillingEvents.push(`${event.status}:${String(event.round)}`);
@@ -128,9 +128,9 @@ test('hands the settled grilling context to the planner in memory', async () => 
 
 test('emits host-owned role transitions for Pi provenance', async () => {
   const phases: string[] = [];
-  const pipeline = new SwarmOrchestrator({
+  const pipeline = new SideroomOrchestrator({
     planner: {
-      id: 'sw-planner',
+      id: 'sideroom-planner',
       run: async () => ({
         summary: 'plan',
         tasks: [{ id: 'T1', title: 'change' }],
@@ -138,12 +138,12 @@ test('emits host-owned role transitions for Pi provenance', async () => {
       }),
     },
     implementer: {
-      id: 'sw-implementer',
+      id: 'sideroom-implementer',
       run: async () => ({ taskId: 'T1', filesChanged: [], summary: 'done' }),
     },
-    reviewer: { id: 'sw-code-reviewer', run: async () => [] },
-    verifier: { id: 'sw-verifier', run: async () => [] },
-    fixer: { id: 'sw-fixer', run: async () => 'not needed' },
+    reviewer: { id: 'sideroom-code-reviewer', run: async () => [] },
+    verifier: { id: 'sideroom-verifier', run: async () => [] },
+    fixer: { id: 'sideroom-fixer', run: async () => 'not needed' },
     onStage: (event) => phases.push(`${event.phase}:${event.status}`),
   });
 
@@ -164,9 +164,9 @@ test('emits host-owned role transitions for Pi provenance', async () => {
 
 test('rejects invalid findings before they reach the fixer', async () => {
   let fixerCalls = 0;
-  const pipeline = new SwarmOrchestrator({
+  const pipeline = new SideroomOrchestrator({
     planner: {
-      id: 'sw-planner',
+      id: 'sideroom-planner',
       run: async () => ({
         summary: 'plan',
         tasks: [{ id: 'T1', title: 'change' }],
@@ -174,11 +174,11 @@ test('rejects invalid findings before they reach the fixer', async () => {
       }),
     },
     implementer: {
-      id: 'sw-implementer',
+      id: 'sideroom-implementer',
       run: async () => ({ taskId: 'T1', filesChanged: [], summary: 'done' }),
     },
     reviewer: {
-      id: 'sw-code-reviewer',
+      id: 'sideroom-code-reviewer',
       run: async () =>
         [
           {
@@ -190,9 +190,9 @@ test('rejects invalid findings before they reach the fixer', async () => {
           },
         ] as unknown as [],
     },
-    verifier: { id: 'sw-verifier', run: async () => [] },
+    verifier: { id: 'sideroom-verifier', run: async () => [] },
     fixer: {
-      id: 'sw-fixer',
+      id: 'sideroom-fixer',
       run: async () => {
         fixerCalls += 1;
         return 'not reached';

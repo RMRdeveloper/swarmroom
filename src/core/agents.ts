@@ -40,11 +40,11 @@ export function createPlanner(
   model: ModelProvider,
 ): PipelineAgent<PlannerInput, Plan> {
   return {
-    id: 'sw-planner',
+    id: 'sideroom-planner',
     async run(input) {
       requireText(input.request, 'planner needs a request');
       const value = await model.generate<unknown>({
-        agent: 'sw-planner',
+        agent: 'sideroom-planner',
         input,
         schema:
           '{ summary: string, tasks: [{ id: string, title: string }], verification: string[] }',
@@ -59,11 +59,11 @@ export function createImplementer(
   model: ModelProvider,
 ): PipelineAgent<ImplementerInput, Implementation> {
   return {
-    id: 'sw-implementer',
+    id: 'sideroom-implementer',
     async run(input) {
       requireText(input.task.id, 'implementer needs a task id');
       const value = await model.generate<unknown>({
-        agent: 'sw-implementer',
+        agent: 'sideroom-implementer',
         input,
         schema: '{ filesChanged: string[], summary: string }',
       });
@@ -93,10 +93,10 @@ export function createReviewer(
   model: ModelProvider,
 ): PipelineAgent<QualityInput, readonly Finding[]> {
   return {
-    id: 'sw-code-reviewer',
+    id: 'sideroom-code-reviewer',
     async run(input) {
       const value = await model.generate<unknown>({
-        agent: 'sw-code-reviewer',
+        agent: 'sideroom-code-reviewer',
         input,
         schema:
           'a JSON string containing FINDING lines, or the JSON string "No findings"',
@@ -113,10 +113,10 @@ export function createVerifier(
   model: ModelProvider,
 ): PipelineAgent<QualityInput, readonly Finding[]> {
   return {
-    id: 'sw-verifier',
+    id: 'sideroom-verifier',
     async run(input) {
       const value = await model.generate<unknown>({
-        agent: 'sw-verifier',
+        agent: 'sideroom-verifier',
         input,
         schema: '{ findings: string, summary: string }',
       });
@@ -136,12 +136,12 @@ export function createFixer(
   model: ModelProvider,
 ): PipelineAgent<FixerInput, string> {
   return {
-    id: 'sw-fixer',
+    id: 'sideroom-fixer',
     async run(input) {
       if (!hasBlockingFindings(input.findings))
         return 'No blocking findings to fix.';
       const value = await model.generate<unknown>({
-        agent: 'sw-fixer',
+        agent: 'sideroom-fixer',
         input,
         schema: '{ summary: string }',
       });

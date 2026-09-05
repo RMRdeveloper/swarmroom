@@ -1,5 +1,5 @@
 ---
-name: sw-fixer
+name: sideroom-fixer
 description: Fixes confirmed blocking findings after review and verification.
 readonly: false
 ---

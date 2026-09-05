@@ -1,10 +1,10 @@
 /** The five roles scheduled by the coding pipeline. */
 export type AgentId =
-  | 'sw-planner'
-  | 'sw-implementer'
-  | 'sw-code-reviewer'
-  | 'sw-verifier'
-  | 'sw-fixer';
+  | 'sideroom-planner'
+  | 'sideroom-implementer'
+  | 'sideroom-code-reviewer'
+  | 'sideroom-verifier'
+  | 'sideroom-fixer';
 
 /** Coding-guideline variants shipped with the package. */
 export const LANGUAGES = [
