@@ -25,21 +25,16 @@ if suffix not in ALLOWED_EXTENSIONS:
     fail(f"unsupported extension {suffix!r}; allowed: {allowed}")
 
 if shutil.which("ffmpeg") is None:
-    fail(
-        "ffmpeg is not on PATH; install the OS binary: sudo apt install ffmpeg "
-        "(ask via ask_user_question: Install now / Abort — only install after explicit user accept)"
-    )
+    fail("ffmpeg is not on PATH; install the OS binary: sudo apt install ffmpeg")
 
 try:
-    from faster_whisper import WhisperModel  # type: ignore[import-not-found]  # pyright: ignore[reportMissingImports]
+    from faster_whisper import WhisperModel  # type: ignore[import-not-found]
 except ImportError:  # pragma: no cover
     fail(
-        "This script must be invoked with: uv run --with faster-whisper python3 transcribe.py <audio_path>. "
-        "Do not run it with python3 directly or install faster-whisper separately."
+        "invoke with: uv run --with faster-whisper python3 transcribe.py <audio_path>"
     )
 
-# pyright: reportPossiblyUnboundVariable=false
-model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")  # type: ignore[possibly-unbound]
+model = WhisperModel("large-v3-turbo", device="cpu", compute_type="int8")
 segments, transcription_info = model.transcribe(str(audio_path))
 text = "".join(segment.text for segment in segments).strip()
 print(json.dumps({"language": transcription_info.language, "text": text}, ensure_ascii=False))

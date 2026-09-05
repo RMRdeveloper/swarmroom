@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: [22.19.0, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,27 +22,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run sync:artifacts:check
-      - run: npm run sync:agents:check
-      - run: npm run sync:skills:check
-
-  skills:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run sync:skills:check
-      - run: npx --yes skills add ./ --list
 
   dist:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20, 24]
+        node-version: [22.19.0, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,6 +36,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: node dist/cli.js --help
-      - run: node dist/cli.js tasks --help
-      - run: node src/cli.ts validate-findings --help || node dist/cli.js validate-findings --help
+      - run: test -f dist/pi-extension.js
+      - run: node dist/pi-extension.js --help

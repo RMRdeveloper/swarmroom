@@ -1,76 +1,37 @@
 {
   "name": "@rmrdeveloper/swarmroom",
-  "version": "2.6.0",
-  "description": "Installable sw-* pipeline agents (planner, implementer, reviewer, verifier, fixer, researcher, web-researcher) for Cursor, opencode, Claude Code, Codex, and Pi.",
+  "version": "4.0.3",
+  "description": "A global Pi package that runs an isolated coding-agent pipeline through /swarmroom.",
   "type": "module",
-  "bin": {
-    "swarmroom": "dist/cli.js"
-  },
   "files": [
     "dist",
     "src/assets",
     "skills"
   ],
   "scripts": {
-    "build": "esbuild src/cli.ts --bundle --platform=node --format=esm --outfile=dist/cli.js --packages=external",
-    "prepublishOnly": "node scripts/sync-agents.mjs && node scripts/sync-artifacts.mjs && node scripts/sync-skills.mjs && npm run build",
-    "setup": "node src/cli.ts",
-    "sync:artifacts": "node scripts/sync-artifacts.mjs",
-    "sync:artifacts:check": "node scripts/sync-artifacts.mjs --check",
-    "sync:skills": "node scripts/sync-skills.mjs",
-    "sync:agents": "node scripts/sync-agents.mjs",
-    "sync:agents:check": "node scripts/sync-agents.mjs --check",
-    "sync:skills:check": "node scripts/sync-skills.mjs --check",
+    "build": "esbuild src/pi-extension.ts --bundle --platform=node --format=esm --outfile=dist/pi-extension.js --packages=external",
+    "prepublishOnly": "npm run check && npm run build",
     "types": "tsc --noEmit",
-    "test": "node --test 'src/**/*.test.ts'",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "check:comments": "node scripts/check-comments.mjs --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global'",
-    "check": "npm run types && npm run lint && npm run format:check && npm test && npm run check:comments",
-    "prepare": "husky"
+    "test": "node --test src/core/agents.test.ts src/core/catalog.test.ts src/core/findings.test.ts src/core/grilling.test.ts src/core/orchestrator.test.ts src/pi-command.test.ts src/runtimes/pi.test.ts",
+    "lint": "biome lint src",
+    "lint:fix": "biome lint --write src",
+    "format": "biome format --write src package.json biome.json",
+    "format:check": "biome format src package.json biome.json",
+    "check": "npm run types && biome check src package.json biome.json && npm test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "keywords": [
     "agents",
     "ai",
-    "ai-agents",
-    "ai-coding",
-    "ai-tools",
-    "automation",
-    "claude",
-    "claude-code",
-    "cli",
-    "code-review",
-    "code-reviewer",
-    "codex",
     "coding-agents",
-    "cursor",
-    "cursor-ide",
-    "developer-tools",
-    "devtools",
-    "fixer",
-    "grilling",
-    "llm",
-    "llm-agents",
     "multi-agent",
-    "opencode",
     "orchestration",
-    "pipeline",
-    "planner",
-    "researcher",
-    "reviewer",
-    "skills",
-    "subagents",
-    "swarm",
-    "task-graph",
-    "task-orchestration",
-    "typescript",
-    "verifier",
-    "workflow"
+    "pi",
+    "pi-package",
+    "pi-sdk",
+    "typescript"
   ],
   "license": "MIT",
   "repository": {
@@ -80,30 +41,22 @@
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "picocolors": "^1.1.1"
+  "pi": {
+    "extensions": [
+      "./dist/pi-extension.js"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.5",
+    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@biomejs/biome": "2.5.11",
     "@types/node": "^22.20.1",
     "esbuild": "^0.25.0",
-    "eslint": "^9.39.5",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-import-resolver-typescript": "^4.4.5",
-    "eslint-plugin-import-x": "^4.17.1",
-    "eslint-plugin-unicorn": "^65.0.1",
-    "globals": "^17.11.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.3.0",
-    "prettier": "^3.9.6",
-    "typescript": "^5.6.0",
-    "typescript-eslint": "^8.68.0"
-  },
-  "lint-staged": {
-    "src/**/*.{ts,js,mjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "**/*.{json,md,yml,yaml}": "prettier --write --ignore-unknown"
+    "typescript": "^5.6.0"
   }
 }

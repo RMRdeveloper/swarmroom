@@ -1,11 +1,48 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Agent harnesses
 .cursor/
 .claude/
 .opencode/
 .codex/
 .agents/
-/CODING_GUIDELINES.md
+
+# Swarmroom local state (never commit generated state per AGENTS.md)
 .swarmroom/
-# Local Pi runtime state
+
+# Local Pi / tool runtime state
 .atl/
+.pi/
+.codegraph/*
+!.codegraph/.gitignore
+
+# Env
+.env
+.env.*
+!.env.example

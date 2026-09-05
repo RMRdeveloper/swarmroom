@@ -1,3 +1,2 @@
 npm run types --silent || exit 1
-node scripts/check-comments.mjs --staged --glob 'src/features/**/*.ts,src/shared/**/*.ts,src/cli/**/*.ts' --allow 'eslint,global' || exit 1
-npx lint-staged
+npx biome check src package.json biome.json

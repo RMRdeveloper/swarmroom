@@ -1,148 +1,81 @@
 ---
 name: sw-grilling
-description: >-
-  Relentlessly stress-test a plan, decision, or feature until shared understanding.
-    Use for non-trivial work, or when the user asks to grill / /sw-grilling.
+description: Clarify a non-trivial feature, plan, or decision through dependency-aware question rounds before implementation.
 license: MIT
 ---
 
-Interview the user until you share one understanding. Map the work as a
-**design tree**: every decision branches into the decisions that hang off it.
+# Grilling
 
-## When to run
+Reach a shared understanding before a non-trivial change is planned or built.
+Model the work as a **design tree**: each decision can unlock further decisions.
+Do not silently choose a product, scope, or trade-off decision for the user.
 
-- **Do:** non-trivial plans, features, architecture choices, or ambiguous scope.
-- **Skip:** trivial one-liners, pure typo/rename fixes, or work whose decisions
-  are already settled in the conversation.
+## Read facts; ask for decisions
 
-## Read-first (constraints, not guesses)
+Read existing repository instructions, source, tests, package scripts, and any
+`CONTEXT.md` or `CONTEXT-MAP.md` before the first round. Facts such as current
+behavior, available commands, and domain vocabulary are yours to verify. Never
+ask the user for a fact you can inspect.
 
-Before the first round, read only what exists at the repo root:
+When a context file exists, use its vocabulary exactly. A context term is a
+domain concept, not a generic technical word. Prefer one canonical term; use
+`Avoid:` terms to prevent synonyms from blurring a decision. If the repository
+has multiple contexts, use its map to identify the relevant one and ask only
+when the relationship remains unclear. Do not create context files or any
+project-local Swarmroom state.
 
-- `CODING_GUIDELINES.md`
-- `AGENTS.md` / `CLAUDE.md`
-- `CONTEXT.md` / `CONTEXT-MAP.md`
-
-When present, treat them as hard constraints. Do not invent standards that
-contradict them. If missing, say so and continue with the baseline the caller
-already uses.
-
-## Facts vs decisions
-
-- **Facts** (code layout, scripts, existing APIs, docs) are your job — look them
-  up with tools or a short research pass. Never ask the user for something you
-  can verify.
-- **Decisions** (scope, trade-offs, product intent) belong to the user — ask and
-  wait.
-
-If a fact lookup is in flight, treat it as an unsettled prerequisite: under the
-round cap, ask eligible frontier questions that do not depend on that fact;
-hold dependent questions for a later round.
-
-## Tooling — always try the harness question tool first
-
-Before each round, inspect the tools available in THIS harness. If a native
-interactive question tool exists, you MUST use it instead of plain markdown.
-Known tools by harness:
-
-- **Pi**: `ask_user_question` — `header` (≤16 chars), `question` (ends with `?`), `options` (2-4 `{label, description, preview?}`); the first option with `(Recommended)` is the recommendation; freeform `Type something.` is auto-appended
-- **opencode**: `question` — `questions[]` with `header`/`question`/`options`
-- **Claude Code**: `AskUserQuestion` — `questions[]` with `header`/`question`/`options`
-- **Cursor**: `AskQuestion` (Plan Mode only)
-- **Codex**: `ask_user_question` (legacy) / `request_user_input`
-  If the harness is not listed, try whatever question tool it exposes — the requirement is generic.
-
-Rules:
-
-1. Prefer the native tool for every question in the batch. If the harness
-   accepts multiple questions per tool call, a single call with ≤3 questions
-   is valid. Otherwise use one tool call per question. Both satisfy the cap.
-2. Map fields to the tool's schema:
-   - Pi `ask_user_question`: `title` (`Qn — <short title>`) → `header`, `body` → `question`, `Recommended` → first `options[].label` with `(Recommended)` suffix and `description` explaining the trade-off
-   - opencode/Claude `question`/`AskUserQuestion`: same mapping to `questions[]` — `header`/`question`/`options`
-   - Always respect the tool's limits: Pi 2-4 options per question (1-4 questions per call), opencode/Claude 2-4 options, Cursor/Codex per their schema. Never emit reserved labels `Other`/`Type something.` — they are auto-appended.
-3. If no question tool exists, or the tool call fails, fall back to plain
-   markdown (no emoji) below — do not block the round. Never prioritize
-   markdown when a tool is available.
-4. `sw-grilling` MUST run in the main conversation / primary agent, never
-   delegated to a subagent (`sw-planner`, `sw-implementer`, `sw-fixer`, etc.).
-   Questions sent to a subagent are invisible to the user and get auto-accepted
-   — this is forbidden. When auto-triggered by `sw-pipeline`, bubble the
-   questions to the principal agent and pause there.
+The user owns decisions: desired outcome, scope, compatibility, user-visible
+behavior, priorities, and accepted trade-offs.
 
 ## Rounds and frontier
 
-Work the tree in **rounds**. The **frontier** is the full set of every decision
-whose prerequisites are already settled — questions you can ask _now_ without
-guessing unanswered ones. Each round asks a **batch** ⊆ frontier (never dump
-the full frontier).
+The **frontier** contains decisions whose prerequisites are already settled.
+Ask no more than three independent frontier questions in one round. A question
+that depends on another unanswered question belongs to a later round.
 
-**Cap:** at most **3** questions per round. If the frontier is larger, fill the
-batch as follows (still under the cap and independence rule): include previously
-skipped frontier items first (all that fit; at least one slot when any skipped
-item is eligible), then fill remaining slots by which questions unblock the most
-downstream work. Carry the rest.
+For every question:
 
-Each round:
+- Explain the concrete decision and its observable consequence.
+- Offer a recommended answer and why it best fits the known facts.
+- Keep alternatives mutually exclusive and avoid asking a disguised fact lookup.
+- Number questions continuously across rounds.
 
-1. Pick ≤3 questions from the frontier using the skip-first then leverage rule
-   above. The asked set must be **independent** — no asked Q depends on another
-   still-open Q in that round (same-round dependency → later round).
-2. Number questions continuously across rounds (never restart at 1). Re-asking a
-   skipped decision keeps its original Q number; only new decisions get the next
-   unused number.
-3. Give a **recommended answer** for each.
-4. Wait for the user before the next round (via the question tool when
-   available; otherwise via markdown).
+After each answer, update the design tree, record the decision, and recompute
+the frontier. If the user accepts a recommendation, record the recommendation
+as the decision. If a fact lookup is still pending, ask every independent
+question that does not depend on it; do not block the entire round.
 
-Format each question like this when falling back to markdown (plain markdown, no emoji):
+In a conversational interface, format a fallback round as:
 
-```
-**Q1 — <short title>**
-<question body; multiple paragraphs and choices are fine>
+```md
+**Q1 — <short decision title>**
+<question, alternatives, and relevant facts>
 
-Recommended: <your recommended answer>
+Recommended: <one answer and its trade-off>
 ```
 
-When using the native tool, map the same fields (`title`, `body`,
-`Recommended`) to the tool's parameters instead of emitting markdown — see Rule 2 for Pi/opencode/Claude mapping.
+Use a native question UI when the host provides one. Otherwise use the fallback
+format and wait for the user's answer; never proceed because silence is
+convenient.
 
-The user may answer in any order, skip and return later, reply
-`go with recommended` to accept every recommendation in the **current** round,
-or accept Recommended for one question with `recommended` / `go with recommended
-for Qn`.
+## Completion and handoff
 
-**Advance** only when every question in the current round is answered,
-explicitly skipped, or covered by a full-round or per-question Recommended
-acceptance. If the user answers some questions and is silent on others, do not
-advance, do not assume, and do not restart numbering: briefly nudge only the
-unresolved ones and wait. Skipped questions remain on the frontier until
-answered, explicitly marked out of scope, or the user accepts Recommended for
-them.
+The grilling phase is complete only when the frontier is empty: each branch is
+settled or explicitly out of scope. Then produce a compact **Settled
+understanding** containing decisions, non-goals, repository constraints, and
+risks the user accepted. Do not implement or plan until this is confirmed.
 
-After each round, recompute the frontier from the settled tree and continue.
+Hand the confirmed understanding to the planner. It constrains the plan; it is
+not an implementation task.
 
-## Exit: Settled understanding
+## Swarmroom pipeline mode
 
-The session is done when the frontier is empty — every remaining branch is
-settled or explicitly out of scope, nothing silently assumed. Then output a
-short **Settled understanding** block:
+When invoked by Swarmroom with a requested JSON schema, perform exactly one
+round. Return only the requested JSON value:
 
-- Decisions made (bullets)
-- Out of scope
-- Constraints from repo docs (if any)
-- Open risks the user accepted
+- `status: "questions"` with one to three frontier questions, each with `id`,
+  `title`, `question`, and `recommendation`; or
+- `status: "settled"` with a concise `summary` suitable for the planner.
 
-Do **not** implement, edit files, or start coding. Do not act on the design until
-the user confirms this shared understanding.
-
-## Handoff
-
-After the user confirms:
-
-- Prefer handing off to `sw-planner` so the settled understanding shapes the
-  implementation plan.
-- If another caller already owns the next step, return the Settled understanding
-  to that caller instead.
-
-Never substitute for `sw-code-reviewer`, `sw-verifier`, or `sw-fixer`.
+The caller supplies prior answers in the task context. Do not repeat settled
+questions or make changes to the working tree.

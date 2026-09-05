@@ -1,290 +1,100 @@
-<div align="center">
+# Swarmroom
 
-# swarmroom
+Swarmroom is a global [Pi package](https://pi.dev/docs/latest/packages). It
+registers the `/swarmroom` command inside Pi and runs planner, implementer,
+reviewer, verifier, and fixer as isolated Pi SDK sessions.
 
-**Portable coding agents — planner, implementer, reviewer, verifier, fixer, researcher, web-researcher — for Cursor, opencode, Claude Code, and Codex.**
+It creates no `.pi` configuration, task graph, harness state, or other files
+in the repository being changed.
 
-One source of truth. Four editors. Isolated task graphs for parallel pipelines. Zero lock-in.
+## Install globally in Pi
 
-[![CI](https://img.shields.io/github/actions/workflow/status/RMRdeveloper/swarmroom/ci.yml?branch=main)](https://github.com/RMRdeveloper/swarmroom/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/%40rmrdeveloper%2Fswarmroom.svg)](https://www.npmjs.com/package/@rmrdeveloper/swarmroom)
-[![npm downloads](https://img.shields.io/npm/dm/%40rmrdeveloper%2Fswarmroom.svg)](https://www.npmjs.com/package/@rmrdeveloper/swarmroom)
-[![node](https://img.shields.io/node/v/%40rmrdeveloper%2Fswarmroom.svg)](https://www.npmjs.com/package/@rmrdeveloper/swarmroom)
-[![license: MIT](https://img.shields.io/github/license/RMRdeveloper/swarmroom)](./LICENSE)
-
-```bash
-npx @rmrdeveloper/swarmroom
-```
-
-</div>
-
----
-
-## The problem
-
-AI coding tools all reinvent the same roles — a planner, a reviewer, a
-verifier — and every team writes its own version, once per editor.
-`AGENTS.md` gets copy-pasted between repos, prompts drift out of sync between
-Cursor and Claude Code, and the model tends to accept its own first plan
-without ever seriously trying to break it.
-
-**swarmroom** is that agent set, written once, installed everywhere — with an
-optional Red Team skill you can invoke manually when you want adversarial scrutiny.
-
-## What it is
-
-Seven coding agents plus the skills that orchestrate them:
-
-```
-sw-pipeline → (trivial? implementer → verifier)
-            → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
-```
-
-Every agent carries the full standards baseline from `CODING_GUIDELINES.md`
-(SOLID, DRY, KISS, YAGNI, fail-fast, Law of Demeter — one line per rule, no
-fluff) and defers to your repo's own `AGENTS.md` / `CODING_GUIDELINES.md` /
-`CONTEXT.md` when present. `sw-researcher` and `sw-web-researcher` sit outside
-the pipeline as on-demand oracles, not stages.
-
-A small TypeScript CLI installs the same set into whichever editors you
-actually use — no SaaS, no account, no telemetry. It copies markdown (and
-TOML, for Codex) into your editor's config directory and gets out of the way.
-
-## Why teams reach for it
-
-- **Parallel pipelines, no clobbering.** Each run gets its own `.swarmroom/tasks/<runId>.tasks` (blocks `field: value`, no JSON) via required `--tasks-file`; run N pipelines concurrently without overwriting.
-- **`sw-grilling`: a structured interview, not a question dump.** Stress-tests
-  scope and assumptions in rounds capped at 3 questions each, skipped
-  questions get priority next round instead of getting buried, and you can
-  fast-track a round with `go with recommended`.
-- **One prompt, four targets.** Edit `src/assets/agents/sw-planner.md` once;
-  the installer rewrites frontmatter per editor (`readonly` → `mode: subagent`
-  → TOML `developer_instructions`) so it stays valid everywhere without a
-  second copy to maintain.
-- **Findings you can pipe.** `sw-code-reviewer` and `sw-verifier` emit one line per issue in a fixed format `sw-fixer` consumes directly — no free-text review to re-parse. `sw-critic` (manual skill) uses the same format.
-- **Repo docs always win.** Every agent reads your `AGENTS.md` /
-  `CODING_GUIDELINES.md` / `CONTEXT.md` fresh before acting, and says so
-  explicitly when one is missing instead of guessing at conventions.
-- **Idempotent by default.** Re-running the installer skips files that already
-  exist unless you pass `--force`. Safe to wire into onboarding or CI.
-
-## Quick start
+Build the package, then let Pi install it globally. Do not use `-l`: that
+would create project-local configuration.
 
 ```bash
-npx @rmrdeveloper/swarmroom
+npm install
+npm run build
+pi install /absolute/path/to/swarmroom
 ```
 
-Pick editors and whether to install in this project or your home directory.
-Non-interactive:
+For a published release:
 
 ```bash
-npx @rmrdeveloper/swarmroom --cursor --opencode --claude --codex --force
-npx @rmrdeveloper/swarmroom --global --codex --force
+pi install npm:@rmrdeveloper/swarmroom@4.0.3
 ```
 
-Or `npm i -g @rmrdeveloper/swarmroom`, then `swarmroom`. Re-run the same
-command to update — existing files are skipped unless you pass `--force`.
+Start Pi from the repository you want to work in, then invoke the extension:
 
-**Via `skills.sh` (standalone skills):**
-
-```bash
-npx skills add RMRdeveloper/swarmroom
-# or pick standalone skills (no subagent delegation)
-npx skills add RMRdeveloper/swarmroom --skill sw-grilling
-npx skills add RMRdeveloper/swarmroom --skill sw-critic
-npx skills add RMRdeveloper/swarmroom --skill sw-spec
-npx skills add RMRdeveloper/swarmroom --skill sw-transcribe-audio
+```text
+/swarmroom "Add a health endpoint"
+/swarmroom --language php-laravel "Add invoice export"
+/swarmroom --read-only "Review the retry behavior"
 ```
 
-`skills.sh` installs the `skills/` mirror (4 standalone skills: `sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`). `sw-pipeline` is the orchestrator that delegates to 7 subagents (`sw-planner`, `sw-implementer`, …) and is available **only via `npx @rmrdeveloper/swarmroom`** (which installs both agents and skills). Use `skills.sh` for standalone skills, `npx @rmrdeveloper/swarmroom` for the full pipeline.
+Pi extension commands are necessarily slash commands, so `/swarmroom` is the
+single command; there is no `swarm` subcommand and no separate `swarmroom`
+binary to run. When the request is omitted, Pi asks for it using its own UI.
 
-`swarmroom --help` (or `npx --yes @rmrdeveloper/swarmroom --help`) lists flags. `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <path>` prints `.swarmroom/tasks/<path>` status (blocks `field: value`); it does not run agents. When `swarmroom` is on `PATH` (`npm i -g` or `npm i @rmrdeveloper/swarmroom`), bare `swarmroom tasks --tasks-file <path>` is equivalent; `npx --yes @rmrdeveloper/swarmroom` is required in clean `npx`-only checkouts where the binary is ephemeral.
+Supported guideline variants are `typescript` (default), `javascript`,
+`php-laravel`, `python`, and `java`. `--read-only` removes write-capable tools
+from every role. `--max-fix-passes <number>` changes the default limit of two
+repair passes.
 
-Then run `/sw-pipeline` (Cursor) or the matching skill in your editor. Codex
-loads skills from `.agents/skills` (or `~/.agents/skills` when global).
+## Provenance and isolation
 
-## What you get
+`/swarmroom` is dispatched to the extension before Pi expands skills or sends
+the command to the interactive agent. The extension then creates direct,
+in-memory SDK sessions for the five Swarmroom roles. Those child sessions load
+only this package's skills and explicit policy; global Pi skills, extensions,
+prompt templates, and global context files are excluded.
 
-| Editor      | Agents                 | Skills                     |
-| ----------- | ---------------------- | -------------------------- |
-| Cursor      | `.cursor/agents/*.md`  | `.cursor/skills/<name>/`   |
-| opencode    | `.opencode/agent/*.md` | `.opencode/skills/<name>/` |
-| Claude Code | `.claude/agents/*.md`  | `.claude/skills/<name>/`   |
-| Codex       | `.codex/agents/*.toml` | `.agents/skills/<name>/`   |
+At the end of every run, Pi displays a `Swarmroom completed` or `Swarmroom
+failed` message with its provenance and the completed roles. It also records
+the same trace in Pi's session history as `swarmroom:run`; this is Pi session
+metadata, never a file in the target repository.
 
-Each skill folder includes `SKILL.md`. Skills that ship a helper script get
-that file copied as-is next to it (today: `sw-transcribe-audio` → `transcribe.py`).
+The packaged `sw-grilling` skill runs as the design-decision gate. Its
+questions use Pi's native decision UI. During a run, a persistent Pi widget
+shows the active phase, the waiting-for-answer state, and the direct-SDK
+provenance. Selecting a recommendation accepts it; selecting the alternate
+option opens a custom-answer field. The widget is removed automatically when a
+run completes or fails; the final Pi session message remains as the durable
+record. It is not a request to any global skill with the same name.
 
-Project installs also copy `CODING_GUIDELINES.md` to the repo root and
-`check-comments.mjs` + `findings-validator.mjs` + `validate-spec.mjs` to `.swarmroom/artifacts/` (gitignored,
-allowlist `ARTIFACTS_ALLOWLIST` in `src/features/installer/installer.ts`). Global installs skip those artifacts. Codex
-global skills go to `~/.agents/skills`.
+## Content and guidelines
 
-## Pipeline
+The five role prompts are in `src/assets/agents/`. The shared policy is
+`src/assets/artifacts/GUIDELINES_TEMPLATE.md`; the language layers live in
+`src/assets/artifacts/guidelines/`. Implementer and fixer receive those
+policies before their write gate and must read them before every code-writing
+tool call.
 
-```
-sw-pipeline → (trivial? implementer → verifier)
-            → else grilling → planner → implementer(s) → reviewer∥verifier → fixer → verifier (loop until no Critical|High|Medium)
-```
-
-Each run is isolated by `runId` — e.g. `add-auth-20260821-1420-a3f9` → `.swarmroom/tasks/<runId>.tasks` via `npx --yes @rmrdeveloper/swarmroom tasks --tasks-file <runId>.tasks` (or `swarmroom tasks --tasks-file <runId>.tasks` when the binary is on `PATH`). `tasksFile` MUST end with `.tasks` (rejected otherwise; validated by `assertTasksFileSafe` + `/\.tasks$/` in `src/shared/kernel/tasks-format.ts` / `src/features/tasks/task-store.ts`). Parallel runs with distinct `runId` never collide. Format: blocks `field: value` separated by a blank line, no JSON; `validate` ALWAYS before `ready|set|replan` and after graph changes (abort if not `Valid task graph: N tasks.`).
-
-Trivial iff ALL: (a) ≤20 lines, (b) exactly 1 file in `files`, (c) no new dep/import, (d) no decision in design tree, (e) user confirms `trivial` via `ask_user_question` (Pi/opencode/Claude). If doubt, ask — never assume trivial, never bypass `sw-grilling` + `sw-planner`. Trivial graph is `T1 sw-implementer` → `T2 sw-verifier`.
-
-For non-trivial work, the pipeline runs `sw-grilling` first when that skill is installed. After implementation, `sw-code-reviewer` and `sw-verifier` run in parallel (both read-only); either reporting Critical, High, or Medium routes to `sw-fixer` (max 2 passes), then re-runs the reviewers. The loop `reviewer/verifier → fixer → reviewer/verifier` repeats until `No findings` or only `Low` remain. `sw-critic` is a manual skill (`/sw-critic`) and is never auto-scheduled.
-
-Deterministic scheduling via `selectRunnable()` in `src/features/tasks/scheduler.ts` (do not re-implement disjoint check): dependencies must all be `completed`; two writers (`sw-implementer`, `sw-fixer`) run in parallel only if both declare `files` and sets are disjoint; a writer without `files` runs alone among writers; non-writers may run with anyone. Token budget: pass each subagent only its task plus `result`/`files`/findings of deps via `humanReady()` — never the full `.tasks` or specs.
-
-## Skills
-
-| Skill                 | Role                                                                                                                                                                                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `sw-pipeline`         | Runs the agent sequence end to end. Does not substitute its own judgement for the specialists.                                                                                                                                     |
-| `sw-spec`             | Writes a lightweight spec under `.swarmroom/specs/<slug>.md` in the target project root (isolated from `docs/`), then hands off to `sw-pipeline`. Confirms before writing; never overwrites silently. Always in English.           |
-| `sw-grilling`         | Stress-tests a plan, decision, or feature until you share one understanding — in capped, ordered rounds instead of one giant question dump. Doesn't write code.                                                                    |
-| `sw-critic`           | Adversarial Red Team — manually stress-test a plan or diff for logical failures, assumptions, architecture and YAGNI. Not part of the automatic pipeline.                                                                          |
-| `sw-transcribe-audio` | Turns a local audio file (mp3, wav, m4a, ogg/opus, including WhatsApp voice notes) into text on your machine. Needs Python `faster-whisper`, OS `ffmpeg`, and a first-run download of the Whisper `large-v3-turbo` model (~809MB). |
-
-## Agents
-
-| Agent               | Writes? | Role                                                  |
-| ------------------- | ------- | ----------------------------------------------------- |
-| `sw-planner`        | no      | Plan any non-trivial change before editing            |
-| `sw-implementer`    | yes     | Writes code to the repo's standards, then runs checks |
-| `sw-code-reviewer`  | no      | Reviews diffs; one `FINDING` line per issue           |
-| `sw-verifier`       | no      | Confirms the work exists, is wired, and passes tests  |
-| `sw-fixer`          | yes     | Fixes findings, severity-first, max two passes each   |
-| `sw-researcher`     | no      | Answers codebase questions with cited evidence        |
-| `sw-web-researcher` | no      | Answers web/docs questions with cited URLs            |
-
-`sw-researcher` and `sw-web-researcher` are on-demand. They are not stages in
-`sw-pipeline`. `sw-critic` is now a manual skill (`/sw-critic`), not an agent.
-
-## Findings contract
-
-`sw-code-reviewer` and `sw-verifier` emit, and `sw-fixer` consumes, one line per finding ( `sw-critic` uses the same format when invoked manually):
-
-```
-FINDING <N> | <Critical|High|Medium|Low> | <file:line> | <rule> | <description>
-```
-
-Severity: `Critical` = must fix before merge; `High` = must fix before merge; `Medium` = must fix before merge; `Low` = informative — does not block pipeline.
-
-## Repository layout
-
-```
-src/
-├── cli.ts                               # entry: option parsing + orchestration
-├── cli/
-│   └── args.ts                          # argv parsing + help text
-├── shared/kernel/
-│   ├── pipeline.ts                      # single source of the sw-* agent names + skills list
-│   ├── tasks-format.ts                  # shared .tasks block parsing (LINE_RE, splitList, ...)
-│   ├── style.ts                         # TTY-aware colors (picocolors)
-│   └── package-root.ts                  # walk up to package.json for assets resolution
-├── features/
-│   ├── installer/
-│   │   ├── targets.ts                   # Target configs (cursor|opencode|claude|codex) + frontmatter rewrites
-│   │   ├── installer.ts                 # copies assets to target dirs (idempotent)
-│   │   ├── report.ts                    # install summary output
-│   │   └── prompts.ts                   # interactive selection (stdlib readline)
-│   ├── tasks/
-│   │   ├── tasks.ts                     # pure Task Graph + ready/parallel selection (no IO)
-│   │   ├── scheduler.ts
-│   │   └── task-store.ts                # read/write .swarmroom/tasks/<runId>.tasks (blocks field: value)
-│   └── tasks-cli/
-│       └── tasks.ts                     # adapter for `tasks` CLI commands (render, replan, humanReady)
-└── assets/                              # the markdown you install (source of truth)
-    ├── artifacts/
-    │   ├── CODING_GUIDELINES.md
-    │   ├── check-comments.mjs           # deterministic comment gate (JSDoc-only, --fix, copies to .swarmroom/artifacts/)
-    │   ├── findings-validator.mjs       # deterministic findings schema validator (FINDING N | Severity | file:line | rule | description)
-    │   └── validate-spec.mjs            # deterministic spec validator (slug, headings order, Given/When/Then)
-    ├── skills/{sw-pipeline,sw-spec,sw-grilling,sw-critic,sw-transcribe-audio}/
-    └── agents/sw-*.md                    # each embeds GENERATED baseline + tooling via sync:agents
-    scripts/
-    ├── sync-agents.mjs                      # inject GENERATED blocks from CODING_GUIDELINES.md (check with sync:agents:check)
-    ├── sync-artifacts.mjs                   # mirror validators + guidelines to root/.swarmroom (check with sync:artifacts:check)
-    └── sync-skills.mjs                      # mirror standalone skills to skills/ (check with sync:skills:check)
-skills/               # spec-compliant mirror for skills.sh — only standalone skills (sw-pipeline excluded, needs agents)
-├── sw-grilling/SKILL.md
-├── sw-spec/SKILL.md
-├── sw-critic/SKILL.md
-└── sw-transcribe-audio/scripts/transcribe.py
-```
+Reusable Pi skills ship in `skills/`: `sw-grilling`, `sw-critic`, `sw-spec`,
+and `sw-transcribe-audio`. Pi loads them directly through the package manifest.
+The transcription skill needs `uv`, Python, and `ffmpeg` only when explicitly
+used.
 
 ## Development
 
 ```bash
 npm install
-npm run types              # tsc --noEmit type check
-npm run lint               # eslint . (strict + unicorn)
-npm run format:check       # prettier --check .
-npm test                   # node:test suite (colocated *.test.ts)
-npm run check:comments     # deterministic gate: JSDoc-only comments under src/features|shared|cli
-npm run check              # types + lint + format:check + test + check:comments (CI)
-npm run setup              # run the CLI (alias for `node src/cli.ts`)
-npm run build              # bundle CLI to dist/cli.js (required for npm publish / npx)
-npm run sync:agents        # regenerate GENERATED baseline + tooling in agents from CODING_GUIDELINES.md
-npm run sync:agents:check  # verify agents are in sync (CI)
-npm run sync:artifacts     # sync CODING_GUIDELINES.md + validators to root/.swarmroom (check with sync:artifacts:check)
-npm run sync:skills        # regenerate skills/ mirror for skills.sh (or check with sync:skills:check)
+npm run check
+npm run build
 ```
 
-TypeScript runs directly during development (Node's native type stripping,
-requires Node ≥ 23.6); there is no build step for local work. The published
-package ships a bundled `dist/cli.js` so `npx` and installs from npm only need
-Node ≥ 20.
+Biome is the sole formatter and linter. Runtime code uses Pi's SDK only; Pi
+provides `@earendil-works/pi-coding-agent` as a peer dependency.
 
-Agents carry GENERATED blocks — do not hand-edit standards: each `src/assets/agents/sw-*.md` embeds a **Baseline standards** table and a **Deterministic tooling** section injected from `src/assets/artifacts/CODING_GUIDELINES.md` via `npm run sync:agents` (`scripts/sync-agents.mjs`, verified by `src/assets/agents/sync-agents.test.ts` and `npm run sync:agents:check`). Edit the source guideline and re-run `sync:agents` instead of patching agents directly.
+## Layout
 
-Validate specs deterministically:
-
-```bash
-node src/assets/artifacts/validate-spec.mjs --file .swarmroom/specs/<slug>.md
-# in an installed project:
-node .swarmroom/artifacts/validate-spec.mjs --file .swarmroom/specs/<slug>.md
+```text
+src/
+  pi-extension.ts        Pi extension entry point for /swarmroom
+  pi-command.ts          slash-command parsing
+  app.ts                 Pi pipeline assembly
+  core/                  orchestration, roles, contracts, and content catalog
+  runtimes/pi.ts         direct Pi SDK adapter for isolated child sessions
+  assets/                role prompts and coding guidelines
+skills/                  package-provided Pi skills
 ```
-
-Spec rules: English only, headings exactly `Context / Goal / Non-goals / Requirements / Acceptance Criteria / Constraints / Open Questions` in order, no frontmatter `---`, must end with `\n`, any present section must be non-empty, `Acceptance Criteria` must contain `Given/When/Then`, slug `[a-z0-9-]` ≤60 chars.
-
-## Source of truth
-
-The **only** tracked source of agent/skill content is `src/assets/`:
-
-- `src/assets/agents/*.md` + `src/assets/skills/<name>/SKILL.md`
-- `src/assets/artifacts/CODING_GUIDELINES.md` — single source for the baseline table injected into agents via `scripts/sync-agents.mjs` (`npm run sync:agents` / `sync:agents:check`, tested by `src/assets/agents/sync-agents.test.ts`)
-- `src/assets/artifacts/validate-spec.mjs` — deterministic spec validator (slug `[a-z0-9-]` ≤60, headings order, frontmatter forbidden, `Given/When/Then`), plus `findings-validator.mjs` and `check-comments.mjs` kept in sync via `scripts/sync-artifacts.mjs` (`npm run sync:artifacts:check`)
-- `skills/` is a **generated, spec-compliant mirror** for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`) — only standalone skills (`sw-grilling`, `sw-spec`, `sw-critic`, `sw-transcribe-audio`); `sw-pipeline` is excluded because it delegates to 7 subagents. Do not edit `skills/` by hand, run `npm run sync:skills` instead.
-- The repo-root `CODING_GUIDELINES.md` is a **gitignored verbatim copy** of `src/assets/artifacts/CODING_GUIDELINES.md` produced by `npm run sync:artifacts` (and by the installer); `.swarmroom/artifacts/` (`check-comments.mjs`, `findings-validator.mjs`, `validate-spec.mjs` from `ARTIFACTS_ALLOWLIST` in `src/features/installer/installer.ts`) is also gitignored and installer-generated.
-- Everything under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a gitignored, installer-generated copy — never edit those directly.
-
-Deterministic invariants (must not drift): `tasksFile` MUST end with `.tasks` (`assertTasksFileSafe` + `/\.tasks$/` in `src/shared/kernel/tasks-format.ts` / `src/features/tasks/task-store.ts`); trivial iff ALL conditions (≤20 lines, exactly 1 file, no new dep/import, no design decision, user confirms via `ask_user_question`); `validate` ALWAYS before `ready|set|replan` and after graph changes; `sw-spec` ONLY writable path is `.swarmroom/specs/<slug>.md`; agents carry a GENERATED **Deterministic tooling** section — do not re-implement checks with regex.
-
-## Adding a tool or agent
-
-- **New editor target:** add one `Target` entry in `src/features/installer/targets.ts` —
-  the rest is automatic. The installer copies agents/skills to per-editor roots (Cursor `.cursor/agents` + `.cursor/skills`, opencode `.opencode/agent` + `.opencode/skills`, Claude Code `.claude/agents` + `.claude/skills`, Codex `.codex/agents` + `.agents/skills`) and rewrites frontmatter (`readonly` → `mode: subagent` → TOML `developer_instructions`) so one source stays valid everywhere. For `sw-grilling`, the skill uses the harness question tool when available — Pi `ask_user_question` (`header` ≤16, `question` ends with `?`, 2–4 `options` with `(Recommended)` first), opencode `question`, Claude `AskUserQuestion`, Cursor `AskQuestion`, Codex `request_user_input` — and falls back to markdown only when no tool exists.
-- **New agent:** add its markdown to `src/assets/agents/` and its name to
-  `src/shared/kernel/pipeline.ts`, then run `npm run sync:agents` to inject the GENERATED baseline/tooling blocks.
-- **New skill:** add `src/assets/skills/<name>/SKILL.md` and append the name
-  to `skills` in `src/shared/kernel/pipeline.ts`.
-
-The only tracked source of agent/skill content is `src/assets/`. `skills/` is a generated, spec-compliant mirror for `skills.sh` (`npx skills add` discovers `skills/*/SKILL.md`) — do not edit it by hand, run `npm run sync:skills` instead. Everything under `.cursor/`, `.claude/`, `.opencode/`, `.codex/`, and `.agents/` is a gitignored, installer-generated copy — never edit those directly.
-
-## FAQ
-
-**Does this call any external API or LLM?** No. It's a file installer. The
-agents run inside whichever tool you install them into; swarmroom itself
-makes no network calls (the one exception is `sw-transcribe-audio`'s one-time
-model download, which runs entirely on your machine after that).
-
-**Why is sw-critic a manual skill instead of a pipeline stage?** Because an adversary that always blocks the plan can be counter-productive to swarmroom's essence. Running it manually keeps adversarial scrutiny available without forcing a replan on every Critical. The reviewer (`sw-code-reviewer`, style/rules) and verifier (`sw-verifier`, wiring/tests) remain automatic; the Red Team runs only when you ask for it.
-
-**Does it respect my repo's docs?** Every agent reads `AGENTS.md` /
-`CODING_GUIDELINES.md` / `CONTEXT.md` at the repo root before acting and
-treats them as overrides to the shipped baseline.
-
-## License
-
-[MIT](./LICENSE)
