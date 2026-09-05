@@ -124,7 +124,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `src/cli.ts`
 - `src/cli.test.ts`
 
-[Unreleased]: https://github.com/RMRdeveloper/swarmroom/compare/v2.3.1...HEAD
-[2.3.1]: https://github.com/RMRdeveloper/swarmroom/compare/v2.3.0...v2.3.1
-[2.3.0]: https://github.com/RMRdeveloper/swarmroom/compare/v2.2.0...v2.3.0
-[2.2.0]: https://github.com/RMRdeveloper/swarmroom/releases/tag/v2.2.0
+[Unreleased]: https://github.com/RMRdeveloper/sideroom-pi/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/RMRdeveloper/sideroom-pi/compare/v2.3.0...v2.3.1
+[2.3.0]: https://github.com/RMRdeveloper/sideroom-pi/compare/v2.2.0...v2.3.0
+[2.2.0]: https://github.com/RMRdeveloper/sideroom-pi/releases/tag/v2.2.0
