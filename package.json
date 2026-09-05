@@ -1,6 +1,6 @@
 {
   "name": "@rmrdeveloper/sideroom-pi",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "A global Pi package that runs an isolated coding-agent pipeline through /sideroom.",
   "type": "module",
   "files": [

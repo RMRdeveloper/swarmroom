@@ -1,5 +1,9 @@
 # Sideroom Pi
 
+[![npm version](https://img.shields.io/npm/v/@rmrdeveloper/sideroom-pi?label=npm&logo=npm)](https://www.npmjs.com/package/@rmrdeveloper/sideroom-pi)
+[![npm monthly downloads](https://img.shields.io/npm/dm/@rmrdeveloper/sideroom-pi?label=downloads&logo=npm)](https://www.npmjs.com/package/@rmrdeveloper/sideroom-pi)
+[![npm license](https://img.shields.io/npm/l/@rmrdeveloper/sideroom-pi?label=license)](https://www.npmjs.com/package/@rmrdeveloper/sideroom-pi)
+
 Sideroom Pi is a global [Pi package](https://pi.dev/docs/latest/packages). It
 registers the `/sideroom` command inside Pi and runs planner, implementer,
 reviewer, verifier, and fixer as isolated Pi SDK sessions.
@@ -7,21 +11,26 @@ reviewer, verifier, and fixer as isolated Pi SDK sessions.
 It creates no `.pi` configuration, task graph, harness state, or other files
 in the repository being changed.
 
-## Install globally in Pi
+## Install
 
-Build the package, then let Pi install it globally. Do not use `-l`: that
-would create project-local configuration.
+Install Sideroom globally from npm. Pi writes this installation to your user
+settings, so do not use `-l`.
 
 ```bash
-npm install
-npm run build
-pi install /absolute/path/to/sideroom-pi
+pi install npm:@rmrdeveloper/sideroom-pi
 ```
 
-For a published release:
+For a reproducible environment, install a specific release instead. A pinned
+version does not move when you run Pi's package update command.
 
 ```bash
 pi install npm:@rmrdeveloper/sideroom-pi@5.0.0
+```
+
+To update an unpinned installation:
+
+```bash
+pi update --extension npm:@rmrdeveloper/sideroom-pi
 ```
 
 Start Pi from the repository you want to work in, then invoke the extension:
